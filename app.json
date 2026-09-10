@@ -1,15 +1,18 @@
 {
   "expo": {
-    "name": "2026-W38-bizde",
-    "slug": "2026-W38-bizde",
+    "name": "Bizde",
+    "slug": "bizde",
+    "scheme": "bizde",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.bizde.app"
     },
     "android": {
+      "package": "com.bizde.app",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/android-icon-foreground.png",
