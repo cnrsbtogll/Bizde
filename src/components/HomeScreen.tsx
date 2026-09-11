@@ -47,7 +47,7 @@ import { CelebrationOverlay } from './game/CelebrationOverlay';
 import { MilestoneRewardModal } from './game/MilestoneRewardModal';
 import { XPBurstOverlay, type BurstData } from './game/XPBurstOverlay';
 
-const BAR_COLORS = ['#0f766e', '#ea580c'];
+const BAR_COLORS = ['#0284C7', '#E11D48'];
 
 export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
   const insets = useSafeAreaInsets();
@@ -559,6 +559,7 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
           member2Name={femaleMember}
           member2Points={n2 ?? 0}
           color1={BAR_COLORS[0]}
+          color2={BAR_COLORS[1]}
           onMilestonePress={(m) => {
             setSelectedMilestone(m);
             if (m.pct === 25 && activeGoal.m25Title) {
