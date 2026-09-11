@@ -543,7 +543,9 @@ export function HomeScreen({ lang }: { lang: Lang }) {
                   <Text style={styles.requestNote}>
                     {item.requestedBy} {t(lang, 'home.requestedBy')}:
                   </Text>
-                  <Text style={styles.requestTitle}>{item.title}</Text>
+                  <Text style={styles.requestTitle}>
+                    {lang === 'tr' ? `"${item.title}" görevini yapmanı rica ederim.` : `Could you please do: "${item.title}"?`}
+                  </Text>
                   <Text style={styles.requestPoints}>+{item.requestedPoints} XP</Text>
                 </View>
                 <View style={styles.requestActions}>
@@ -571,7 +573,7 @@ export function HomeScreen({ lang }: { lang: Lang }) {
         {outgoing.length > 0 && (
           <View style={styles.outgoingSection}>
             <Text style={styles.outgoingSubtitle}>
-              ⏳ {partnerName}{"'a gönderdiğin istekler:"}
+              ⏳ {lang === 'tr' ? "Eşine gönderdiğin istekler:" : "Requests sent to partner:"}
             </Text>
             {outgoing.map((item) => (
               <View key={item.id} style={styles.outgoingCard}>
