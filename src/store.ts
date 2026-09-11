@@ -65,7 +65,7 @@ interface BizdeState {
   setPartner: (name: string) => void;
   setActor: (name: string) => void;
   createCode: () => string;
-  joinCode: (code: string) => Promise<boolean>;
+  joinCode: (code: string, selectedActor?: string) => Promise<boolean>;
   dismissPairingCode: () => void;
   /** Görev iddiası: puan aralığa sıkışır, status pending. */
   claimTask: (title: string, points: number, templateId?: string) => string | null;
@@ -184,7 +184,7 @@ export const useBizde = create<BizdeState>()((set, get) => ({
     return code;
   },
 
-  joinCode: async (code) => {
+  joinCode: async (code, selectedActor) => {
     if (!/^\d{6}$/.test(code)) return false;
     const coupleId = `couple-${code}`;
     const remoteData = await fetchCoupleDocument(coupleId);
@@ -193,7 +193,7 @@ export const useBizde = create<BizdeState>()((set, get) => ({
       const members = (remoteData.members && remoteData.members.length > 0)
         ? remoteData.members
         : get().members;
-      const guestActor: string = members.length > 1 ? (members[1] ?? 'Partner') : (members[0] ?? 'Partner');
+      const guestActor = selectedActor || (members.length > 1 ? (members[1] ?? 'Partner') : (members[0] ?? 'Partner'));
       
       set({
         ...remoteData,
@@ -212,7 +212,7 @@ export const useBizde = create<BizdeState>()((set, get) => ({
     // Local / fallback
     const { pairingCode, members } = get();
     if (pairingCode !== null && code === pairingCode) {
-      const guestActor: string = members.length > 1 ? (members[1] ?? 'Partner') : (members[0] ?? 'Partner');
+      const guestActor = selectedActor || (members.length > 1 ? (members[1] ?? 'Partner') : (members[0] ?? 'Partner'));
       set({ coupleId, isPaired: true, partnerJoined: true, actor: guestActor });
       return true;
     }

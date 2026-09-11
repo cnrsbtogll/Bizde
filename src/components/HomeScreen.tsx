@@ -37,6 +37,7 @@ import {
   type TaskTemplate,
 } from '@/mock/catalog';
 import { t, type Lang } from '@/i18n/strings';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BouncyPressable } from './game/BouncyPressable';
 import { GamifiedProgressBar } from './game/GamifiedProgressBar';
 import { PersonalGoalCard } from './game/PersonalGoalCard';
@@ -46,7 +47,8 @@ import { CelebrationOverlay } from './game/CelebrationOverlay';
 
 const BAR_COLORS = ['#0f766e', '#ea580c'];
 
-export function HomeScreen({ lang }: { lang: Lang }) {
+export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
+  const insets = useSafeAreaInsets();
   const {
     pairingCode,
     partnerJoined,
@@ -307,22 +309,42 @@ export function HomeScreen({ lang }: { lang: Lang }) {
 
   return (
     <View style={styles.container}>
+      {/* Pinned Solid White Top Header */}
+      <View style={[styles.customHeaderBar, { paddingTop: insets.top + 6 }]}>
+        <View style={styles.headerLeftContainer}>
+          <Text style={styles.welcomeText}>
+            👋 {lang === 'tr' ? `Hoş geldin, ${actor || members[0] || ''}` : `Welcome, ${actor || members[0] || ''}`}
+          </Text>
+        </View>
+
+        <View style={styles.headerRightActions}>
+          <StreakBadge streakDays={streak} label={lang === 'tr' ? 'Gün' : 'Days'} />
+          <Pressable
+            onPress={() => {
+              Alert.alert(
+                lang === 'tr' ? 'Eşleşmeden Çık' : 'Leave Couple',
+                lang === 'tr' ? 'Mevcut eşleşmeden çıkıp başlangıç ekranına dönmek istiyor musunuz?' : 'Do you want to leave the couple and return to the start screen?',
+                [
+                  { text: lang === 'tr' ? 'Vazgeç' : 'Cancel', style: 'cancel' },
+                  { text: lang === 'tr' ? 'Çıkış Yap' : 'Leave', style: 'destructive', onPress: () => reset() },
+                ]
+              );
+            }}
+            style={styles.headerLeaveBtn}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel="Eşleşmeden Çık"
+          >
+            <Text style={styles.headerLeaveBtnText}>🚪 Çıkış</Text>
+          </Pressable>
+        </View>
+      </View>
+
       <ScrollView
         style={styles.scrollBox}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Top Bar: Welcome greeting + Streak Flame Badge */}
-        <View style={styles.headerBar}>
-          <View style={styles.actorGroup}>
-            <Text style={styles.welcomeText}>
-              👋 {lang === 'tr' ? `Hoş geldin, ${actor || members[0] || ''}` : `Welcome, ${actor || members[0] || ''}`}
-            </Text>
-          </View>
-
-          {/* Dynamic Streak Badge with Lottie Flame */}
-          <StreakBadge streakDays={streak} label={lang === 'tr' ? 'Gün' : 'Days'} />
-        </View>
 
         {pairingCode && !partnerJoined && (
           <View style={{ backgroundColor: '#ecfdf5', padding: 14, borderRadius: 16, marginBottom: 16, alignItems: 'center', borderColor: '#a7f3d0', borderWidth: 1.5, position: 'relative' }}>
@@ -744,26 +766,6 @@ export function HomeScreen({ lang }: { lang: Lang }) {
             )}
           </View>
         )}
-
-        {/* Reset / Logout Button */}
-        <View style={{ alignItems: 'center', marginTop: 24, marginBottom: 40 }}>
-          <BouncyPressable
-            variant="ghost"
-            title={lang === 'tr' ? '🚪 Eşleşmeden Çık (Sıfırla)' : '🚪 Leave Couple (Reset)'}
-            onPress={() => {
-              Alert.alert(
-                lang === 'tr' ? 'Emin misiniz?' : 'Are you sure?',
-                lang === 'tr' ? 'Mevcut eşleşmeden çıkıp başlangıç ekranına döneceksiniz.' : 'You will leave the current couple and return to the start screen.',
-                [
-                  { text: lang === 'tr' ? 'Vazgeç' : 'Cancel', style: 'cancel' },
-                  { text: lang === 'tr' ? 'Çıkış Yap' : 'Leave', style: 'destructive', onPress: () => reset() }
-                ]
-              );
-            }}
-            style={{ paddingVertical: 8, paddingHorizontal: 16 }}
-            textStyle={{ color: '#ef4444', fontSize: 13, fontWeight: '600' }}
-          />
-        </View>
 
       </ScrollView>
 
@@ -1397,15 +1399,47 @@ const styles = StyleSheet.create({
     padding: 14,
     paddingTop: 8,
   },
+  customHeaderBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    backgroundColor: '#ffffff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
   headerBar: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    paddingVertical: 4,
   },
   actorGroup: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    flex: 1,
+  },
+  headerRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerLeaveBtn: {
+    backgroundColor: '#fee2e2',
+    borderColor: '#fca5a5',
+    borderWidth: 1,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerLeaveBtnText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#dc2626',
   },
   actorLabelText: {
     fontSize: 12,
@@ -1422,6 +1456,10 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     minHeight: 28,
     justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerLeftContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
   },
   welcomeText: {

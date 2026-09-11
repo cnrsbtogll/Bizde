@@ -16,7 +16,7 @@ import { t, type Lang } from '@/i18n/strings';
 import { validPairingCode } from '@/lib/progress';
 import { BouncyPressable } from './game/BouncyPressable';
 
-export function PairingScreen({ lang }: { lang: Lang }) {
+export function PairingScreen({ lang = 'tr' }: { lang?: Lang }) {
   const { signIn, setPartner, createCode, joinCode, pairingCode } = useBizde();
   const [mode, setMode] = useState<'create' | 'join'>('create');
   const [name, setName] = useState('');

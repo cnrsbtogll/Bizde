@@ -1,32 +1,50 @@
-import { useState } from 'react';
-import { Button, StyleSheet, View } from 'react-native';
+import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import { useBizde } from '@/store';
 import { PairingScreen } from '@/components/PairingScreen';
 import { HomeScreen } from '@/components/HomeScreen';
-import { type Lang } from '@/i18n/strings';
 
-// Thin root: language toggle + screen switch. All logic lives in src/*.
+export type RootStackParamList = {
+  Pairing: undefined;
+  Home: undefined;
+};
+
+const Stack = createNativeStackNavigator<RootStackParamList>();
+
+const theme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    background: '#f8fafc',
+    card: '#ffffff',
+  },
+};
+
 export default function App() {
   const isPaired = useBizde((s) => s.isPaired);
-  const [lang, setLang] = useState<Lang>('tr');
 
   return (
-    <View style={styles.root}>
-      <StatusBar style="auto" />
-      <View style={styles.toggle}>
-        <Button
-          title={lang === 'tr' ? 'EN' : 'TR'}
-          onPress={() => setLang((l) => (l === 'tr' ? 'en' : 'tr'))}
-        />
-      </View>
-      {isPaired ? <HomeScreen lang={lang} /> : <PairingScreen lang={lang} />}
-    </View>
+    <NavigationContainer theme={theme}>
+      <StatusBar style="dark" />
+      <Stack.Navigator
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: '#f8fafc' },
+        }}
+      >
+        {isPaired ? (
+          <Stack.Screen
+            name="Home"
+            component={HomeScreen}
+          />
+        ) : (
+          <Stack.Screen
+            name="Pairing"
+            component={PairingScreen}
+          />
+        )}
+      </Stack.Navigator>
+    </NavigationContainer>
   );
 }
-
-
-const styles = StyleSheet.create({
-  root: { flex: 1 },
-  toggle: { alignSelf: 'flex-end', marginRight: 16, marginTop: 48 },
-});
