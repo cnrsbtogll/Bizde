@@ -185,6 +185,7 @@ export function HomeScreen({ lang }: { lang: Lang }) {
   };
 
   const openEditTaskModal = (tpl: TaskTemplate) => {
+    setTaskModal(false); // close task picker first — iOS can't stack two Modals
     setEditingTask(tpl);
     const currentPts = taskPointOverrides[tpl.id] ?? tpl.defaultPoints;
     setEditingTaskPoints(String(currentPts));
@@ -194,14 +195,20 @@ export function HomeScreen({ lang }: { lang: Lang }) {
   const saveTaskPoints = () => {
     if (!editingTask) return;
     const pts = Number(editingTaskPoints);
-    if (!Number.isInteger(pts) || pts < 10 || pts > 50) {
-      setError(t(lang, 'home.minMaxPointsNotice'));
+    const clamped = clampPoints(pts, editingTask);
+    if (!Number.isFinite(pts) || pts !== clamped) {
+      setError(
+        lang === 'tr'
+          ? `Puan ${editingTask.minPoints} ile ${editingTask.maxPoints} arasında olmalıdır.`
+          : `Points must be between ${editingTask.minPoints} and ${editingTask.maxPoints}.`
+      );
       return;
     }
-    updateTaskPoints(editingTask.id, pts);
+    updateTaskPoints(editingTask.id, clamped);
     setEditingTask(null);
     setEditingTaskPoints('');
     setError('');
+    setTaskModal(true); // reopen task picker
   };
 
   const saveCustom = () => {
@@ -300,434 +307,434 @@ export function HomeScreen({ lang }: { lang: Lang }) {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-      {/* Top Bar: Active player chips + Streak Flame Badge */}
-      <View style={styles.headerBar}>
-        <View style={styles.actorGroup}>
-          <Text style={styles.actorLabelText}>{t(lang, 'home.actorLabel')}:</Text>
-          <View style={styles.memberChips}>
-            {members.map((m) => {
-              const isActive = actor === m;
-              return (
-                <Pressable
-                  key={m}
-                  onPress={() => {
-                    void Haptics.selectionAsync();
-                    setActor(m);
-                  }}
-                  hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
-                  style={[
-                    styles.chipButton,
-                    isActive ? styles.chipButtonActive : styles.chipButtonInactive,
-                  ]}
-                  accessibilityRole="button"
-                  accessibilityLabel={`Kullanıcı ${m}`}
-                >
-                  <Text
-                    style={[
-                      styles.chipText,
-                      isActive ? styles.chipTextActive : styles.chipTextInactive,
-                    ]}
-                  >
-                    {m}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* Dynamic Streak Badge with Lottie Flame */}
-        <StreakBadge streakDays={streak} label={lang === 'tr' ? 'Gün' : 'Days'} />
-      </View>
-
-      {/* Mutual Goal Proposal Banner */}
-      {pendingGoalProposal && (
-        <View style={styles.proposalCard}>
-          <View style={styles.proposalHeaderRow}>
-            <Text style={styles.proposalIcon}>🤝</Text>
-            <View style={styles.proposalHeaderTextCol}>
-              <Text style={styles.proposalTitle}>
-                {lang === 'tr' ? 'Hedef Değişiklik Teklifi' : 'Goal Change Proposal'}
-              </Text>
-              <Text style={styles.proposalSubtext}>
-                {pendingGoalProposal.proposedBy}{' '}
-                {pendingGoalProposal.targetType === 'common'
-                  ? (lang === 'tr' ? 'ortak hedef için önerdi:' : 'proposed for common goal:')
-                  : (lang === 'tr'
-                      ? `${pendingGoalProposal.targetMember || ''} hedefi için önerdi:`
-                      : `proposed for ${pendingGoalProposal.targetMember || ''}'s goal:`)}
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.proposalDetailsBox}>
-            <Text style={styles.proposalTargetTitle} numberOfLines={2}>
-              🏆 {pendingGoalProposal.title}
-            </Text>
-            <View style={styles.proposalBadgeRow}>
-              <Text style={styles.proposalBadgeText}>{pendingGoalProposal.targetPoints} XP</Text>
-              {pendingGoalProposal.m25Title && (
-                <Text style={styles.proposalSubBadgeText}>
-                  %25: {pendingGoalProposal.m25Title}
-                </Text>
-              )}
-            </View>
-          </View>
-
-          {actor !== pendingGoalProposal.proposedBy ? (
-            <View style={styles.proposalActionsRow}>
-              <BouncyPressable
-                variant="primary"
-                title={lang === 'tr' ? '✅ Onayla' : '✅ Accept'}
-                onPress={() => {
-                  void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                  acceptGoalProposal();
-                  setProposalFeedback(
-                    lang === 'tr'
-                      ? '🎉 Yeni hedef mutabakatla onaylandı!'
-                      : '🎉 Goal mutually approved!'
-                  );
-                }}
-                style={styles.proposalActionBtn}
-              />
-              <BouncyPressable
-                variant="ghost"
-                title={lang === 'tr' ? '❌ Reddet' : '❌ Decline'}
-                onPress={() => {
-                  void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-                  rejectGoalProposal();
-                  setProposalFeedback(
-                    lang === 'tr' ? 'Hedef teklifi reddedildi.' : 'Goal proposal declined.'
-                  );
-                }}
-                style={styles.proposalActionBtn}
-              />
-            </View>
-          ) : (
-            <View style={styles.proposalWaitingCol}>
-              <View style={styles.proposalWaitingRow}>
-                <Text style={styles.proposalWaitingText}>
-                  ⏳ {lang === 'tr' ? 'Eşinin onayı bekleniyor...' : 'Awaiting partner approval...'}
-                </Text>
-                <Pressable
-                  onPress={() => {
-                    void Haptics.selectionAsync();
-                    rejectGoalProposal();
-                    setProposalFeedback(
-                      lang === 'tr' ? 'Teklif geri çekildi.' : 'Proposal retracted.'
-                    );
-                  }}
-                  style={styles.proposalCancelBtn}
-                >
-                  <Text style={styles.proposalCancelText}>
-                    {lang === 'tr' ? 'Geri Çek' : 'Cancel'}
-                  </Text>
-                </Pressable>
-              </View>
-              {(() => {
-                const partner = members.find((m) => m !== actor);
-                if (!partner) return null;
+        {/* Top Bar: Active player chips + Streak Flame Badge */}
+        <View style={styles.headerBar}>
+          <View style={styles.actorGroup}>
+            <Text style={styles.actorLabelText}>{t(lang, 'home.actorLabel')}:</Text>
+            <View style={styles.memberChips}>
+              {members.map((m) => {
+                const isActive = actor === m;
                 return (
                   <Pressable
+                    key={m}
                     onPress={() => {
                       void Haptics.selectionAsync();
-                      setActor(partner);
+                      setActor(m);
                     }}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    style={styles.proposalSwitchPartnerBtn}
-                  >
-                    <Text style={styles.proposalSwitchPartnerText}>
-                      👤 {lang === 'tr' ? `${partner}'a Geç ve Onayla` : `Switch to ${partner} to review`}
-                    </Text>
-                  </Pressable>
-                );
-              })()}
-            </View>
-          )}
-        </View>
-      )}
-
-      {/* Temporary Feedback Banner */}
-      {proposalFeedback.length > 0 && (
-        <View style={styles.feedbackBanner}>
-          <Text style={styles.feedbackBannerText}>{proposalFeedback}</Text>
-          <Pressable onPress={() => setProposalFeedback('')}>
-            <Text style={styles.feedbackCloseText}>✕</Text>
-          </Pressable>
-        </View>
-      )}
-
-      {/* Gamified XP Progress Bar with Integrated Common Goal Header & Journey */}
-      <GamifiedProgressBar
-        total={total}
-        target={target}
-        goalTitle={activeGoal.title}
-        m25Title={activeGoal.m25Title}
-        m60Title={activeGoal.m60Title}
-        member1Name={maleMember}
-        member1Points={n1 ?? 0}
-        member2Name={femaleMember}
-        member2Points={n2 ?? 0}
-        color1={BAR_COLORS[0]}
-        color2={BAR_COLORS[1]}
-        onMilestonePress={(m) => setSelectedMilestone(m)}
-        onAdjustTarget={(delta) => adjustTargetPoints(delta)}
-        onEditGoal={openEditGoalModal}
-      />
-
-      {/* 2 Personal Goals: Kadının Hedefi & Erkeğin Hedefi */}
-      <View style={styles.personalGoalsSection}>
-        <PersonalGoalCard
-          member={femaleMember}
-          isFemale={true}
-          points={n2 ?? 0}
-          goal={femaleGoal}
-          onEdit={() => openEditPersonalGoalModal(femaleMember, true)}
-        />
-        <PersonalGoalCard
-          member={maleMember}
-          isFemale={false}
-          points={n1 ?? 0}
-          goal={maleGoal}
-          onEdit={() => openEditPersonalGoalModal(maleMember, false)}
-        />
-      </View>
-
-      {/* Primary Action Buttons: Add Task & Appreciation */}
-      {(() => {
-        const isAppreciated = hasAppreciatedToday(activities, actor);
-        return (
-          <View style={styles.actionRow}>
-            <BouncyPressable
-              variant="primary"
-              title={`⚡ ${t(lang, 'home.addPoints')}`}
-              onPress={() => setTaskModal(true)}
-              style={styles.actionButton}
-              textStyle={styles.actionText}
-            />
-            <BouncyPressable
-              variant={isAppreciated ? 'ghost' : 'amber'}
-              title={
-                isAppreciated
-                  ? (lang === 'tr' ? '💖 Teşekkür Edildi' : '💖 Appreciated')
-                  : `💖 ${t(lang, 'home.thanks')}`
-              }
-              disabled={isAppreciated}
-              onPress={() => appreciate()}
-              style={styles.actionButton}
-              textStyle={styles.actionText}
-            />
-          </View>
-        );
-      })()}
-
-      {/* Section 1: Incoming Requests (Partner asked ME to do this) */}
-      {incoming.length > 0 && (
-        <View style={styles.incomingSection}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.incomingSectionTitle}>💌 {t(lang, 'home.incomingRequests')}</Text>
-            <View style={styles.incomingBadge}>
-              <Text style={styles.incomingBadgeText}>{incoming.length}</Text>
-            </View>
-          </View>
-          {incoming.map((item) => (
-            <View key={item.id} style={styles.requestCard}>
-              <View style={styles.requestLeft}>
-                <Text style={styles.requestNote}>
-                  {item.requestedBy} {t(lang, 'home.requestedBy')}:
-                </Text>
-                <Text style={styles.requestTitle}>{item.title}</Text>
-                <Text style={styles.requestPoints}>+{item.requestedPoints} XP</Text>
-              </View>
-              <View style={styles.requestActions}>
-                <BouncyPressable
-                  variant="success"
-                  title={`✨ ${t(lang, 'home.markDone')}`}
-                  onPress={() => completeRequestedTask(item.id)}
-                  style={styles.actionMiniBtn}
-                  textStyle={styles.miniBtnText}
-                />
-                <BouncyPressable
-                  variant="ghost"
-                  title={`✕ ${t(lang, 'home.reject')}`}
-                  onPress={() => rejectActivity(item.id)}
-                  style={styles.actionMiniBtn}
-                  textStyle={styles.miniBtnText}
-                />
-              </View>
-            </View>
-          ))}
-        </View>
-      )}
-
-      {/* Section 2: Outgoing Requests (I asked partner to do this, partner hasn't done yet) */}
-      {outgoing.length > 0 && (
-        <View style={styles.outgoingSection}>
-          <Text style={styles.outgoingSubtitle}>
-            ⏳ {partnerName}{"'a gönderdiğin istekler:"}
-          </Text>
-          {outgoing.map((item) => (
-            <View key={item.id} style={styles.outgoingCard}>
-              <Text style={styles.outgoingText}>
-                {item.title} (+{item.requestedPoints} XP)
-              </Text>
-              <BouncyPressable
-                variant="ghost"
-                title={t(lang, 'home.cancel')}
-                onPress={() => rejectActivity(item.id)}
-                style={styles.cancelMiniBtn}
-                textStyle={styles.cancelMiniText}
-              />
-            </View>
-          ))}
-        </View>
-      )}
-
-      {/* Section 3: Pending Approval (Activity is done; waiting for partner to approve) */}
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>{t(lang, 'home.pending')}</Text>
-        {pending.length > 0 && (
-          <View style={styles.pendingCountBadge}>
-            <Text style={styles.pendingCountText}>{pending.length}</Text>
-          </View>
-        )}
-      </View>
-
-      {pending.length === 0 ? (
-        <View style={styles.emptyCard}>
-          <Text style={styles.emptyText}>{t(lang, 'home.emptyPending')}</Text>
-        </View>
-      ) : (
-        <View style={styles.pendingList}>
-          {(showAllPending ? pending : pending.slice(0, 3)).map((item) => {
-            const isMyClaim = item.claimedBy === actor;
-            return (
-              <View key={item.id} style={styles.pendingCard}>
-                <View style={styles.pendingLeft}>
-                  <Text style={styles.pendingClaimer}>
-                    {isMyClaim ? `👤 Sen (${item.claimedBy})` : `👤 ${item.claimedBy}`}
-                  </Text>
-                  <Text style={styles.pendingTaskTitle}>
-                    {item.title} {isMyClaim ? `(yaptın)` : `(yaptı)`}
-                  </Text>
-                  <Text style={styles.pendingPoints}>+{item.requestedPoints} XP</Text>
-                </View>
-
-                {isMyClaim ? (
-                  // Self-approval guarded: Actor sees waiting status, cannot approve own claim!
-                  <View style={styles.waitingBadge}>
-                    <Text style={styles.waitingText}>
-                      🕒 {partnerName}{"'ın"} {t(lang, 'home.waitingApproval')}
-                    </Text>
-                  </View>
-                ) : (
-                  // Partner approval: Can approve or reject partner's completed work
-                  <View style={styles.pendingActions}>
-                    <TextInput
-                      style={styles.pointsInput}
-                      keyboardType="number-pad"
-                      placeholder={String(item.requestedPoints)}
-                      value={adjust[item.id] ?? ''}
-                      onChangeText={(v) => setAdjust((s) => ({ ...s, [item.id]: v }))}
-                    />
-                    <BouncyPressable
-                      variant="success"
-                      title={`✓ ${t(lang, 'home.approve')}`}
-                      onPress={() => approve(item.id, item.requestedPoints, item.templateId)}
-                      style={styles.miniBtn}
-                      textStyle={styles.miniBtnText}
-                    />
-                    <BouncyPressable
-                      variant="danger"
-                      title={`✕ ${t(lang, 'home.reject')}`}
-                      onPress={() => rejectActivity(item.id)}
-                      style={styles.miniBtn}
-                      textStyle={styles.miniBtnText}
-                    />
-                  </View>
-                )}
-              </View>
-            );
-          })}
-          {pending.length > 3 && (
-            <Pressable
-              onPress={() => {
-                void Haptics.selectionAsync();
-                setShowAllPending(!showAllPending);
-              }}
-              style={styles.showMoreBtn}
-              hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }}
-            >
-              <Text style={styles.showMoreText}>
-                {showAllPending
-                  ? (lang === 'tr' ? '▲ Daha Az Göster' : '▲ Show Less')
-                  : (lang === 'tr' ? `▼ Daha Fazla Göster (+${pending.length - 3})` : `▼ Show More (+${pending.length - 3})`)}
-              </Text>
-            </Pressable>
-          )}
-        </View>
-      )}
-
-      {/* History Section */}
-      <Text style={styles.sectionTitle}>{t(lang, 'home.history')}</Text>
-      {history.length === 0 ? (
-        <View style={styles.emptyCard}>
-          <Text style={styles.emptyText}>{t(lang, 'home.empty')}</Text>
-        </View>
-      ) : (
-        <View style={styles.historyList}>
-          {(showAllHistory ? history : history.slice(0, 3)).map((item) => {
-            const isApproved = item.status === 'approved';
-            const actionSuffix = isApproved
-              ? (lang === 'tr' ? (item.type === 'appreciation' ? '(etti)' : '(yaptı)') : (item.type === 'appreciation' ? '(appreciated)' : '(did it)'))
-              : (lang === 'tr' ? '(olmadı)' : '(rejected)');
-            return (
-              <View key={item.id} style={[styles.historyCard, !isApproved && styles.historyRejectedCard]}>
-                <View style={styles.historyRow}>
-                  <Text style={styles.historyName} numberOfLines={1}>{item.claimedBy}</Text>
-                  <Text style={[styles.historyItemTitle, !isApproved && styles.rejectedText]} numberOfLines={1}>
-                    {item.title} {actionSuffix}
-                  </Text>
-                  <View
+                    hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
                     style={[
-                      styles.historyBadge,
-                      isApproved ? styles.badgeSuccess : styles.badgeRejected,
+                      styles.chipButton,
+                      isActive ? styles.chipButtonActive : styles.chipButtonInactive,
                     ]}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Kullanıcı ${m}`}
                   >
                     <Text
                       style={[
-                        styles.historyBadgeText,
-                        isApproved ? styles.badgeSuccessText : styles.badgeRejectedText,
+                        styles.chipText,
+                        isActive ? styles.chipTextActive : styles.chipTextInactive,
                       ]}
                     >
-                      {isApproved ? `+${item.points} XP` : t(lang, 'home.rejected')}
+                      {m}
                     </Text>
-                  </View>
+                  </Pressable>
+                );
+              })}
+            </View>
+          </View>
+
+          {/* Dynamic Streak Badge with Lottie Flame */}
+          <StreakBadge streakDays={streak} label={lang === 'tr' ? 'Gün' : 'Days'} />
+        </View>
+
+        {/* Mutual Goal Proposal Banner */}
+        {pendingGoalProposal && (
+          <View style={styles.proposalCard}>
+            <View style={styles.proposalHeaderRow}>
+              <Text style={styles.proposalIcon}>🤝</Text>
+              <View style={styles.proposalHeaderTextCol}>
+                <Text style={styles.proposalTitle}>
+                  {lang === 'tr' ? 'Hedef Değişiklik Teklifi' : 'Goal Change Proposal'}
+                </Text>
+                <Text style={styles.proposalSubtext}>
+                  {pendingGoalProposal.proposedBy}{' '}
+                  {pendingGoalProposal.targetType === 'common'
+                    ? (lang === 'tr' ? 'ortak hedef için önerdi:' : 'proposed for common goal:')
+                    : (lang === 'tr'
+                      ? `${pendingGoalProposal.targetMember || ''} hedefi için önerdi:`
+                      : `proposed for ${pendingGoalProposal.targetMember || ''}'s goal:`)}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.proposalDetailsBox}>
+              <Text style={styles.proposalTargetTitle} numberOfLines={2}>
+                🏆 {pendingGoalProposal.title}
+              </Text>
+              <View style={styles.proposalBadgeRow}>
+                <Text style={styles.proposalBadgeText}>{pendingGoalProposal.targetPoints} XP</Text>
+                {pendingGoalProposal.m25Title && (
+                  <Text style={styles.proposalSubBadgeText}>
+                    %25: {pendingGoalProposal.m25Title}
+                  </Text>
+                )}
+              </View>
+            </View>
+
+            {actor !== pendingGoalProposal.proposedBy ? (
+              <View style={styles.proposalActionsRow}>
+                <BouncyPressable
+                  variant="primary"
+                  title={lang === 'tr' ? '✅ Onayla' : '✅ Accept'}
+                  onPress={() => {
+                    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    acceptGoalProposal();
+                    setProposalFeedback(
+                      lang === 'tr'
+                        ? '🎉 Yeni hedef mutabakatla onaylandı!'
+                        : '🎉 Goal mutually approved!'
+                    );
+                  }}
+                  style={styles.proposalActionBtn}
+                />
+                <BouncyPressable
+                  variant="ghost"
+                  title={lang === 'tr' ? '❌ Reddet' : '❌ Decline'}
+                  onPress={() => {
+                    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    rejectGoalProposal();
+                    setProposalFeedback(
+                      lang === 'tr' ? 'Hedef teklifi reddedildi.' : 'Goal proposal declined.'
+                    );
+                  }}
+                  style={styles.proposalActionBtn}
+                />
+              </View>
+            ) : (
+              <View style={styles.proposalWaitingCol}>
+                <View style={styles.proposalWaitingRow}>
+                  <Text style={styles.proposalWaitingText}>
+                    ⏳ {lang === 'tr' ? 'Eşinin onayı bekleniyor...' : 'Awaiting partner approval...'}
+                  </Text>
+                  <Pressable
+                    onPress={() => {
+                      void Haptics.selectionAsync();
+                      rejectGoalProposal();
+                      setProposalFeedback(
+                        lang === 'tr' ? 'Teklif geri çekildi.' : 'Proposal retracted.'
+                      );
+                    }}
+                    style={styles.proposalCancelBtn}
+                  >
+                    <Text style={styles.proposalCancelText}>
+                      {lang === 'tr' ? 'Geri Çek' : 'Cancel'}
+                    </Text>
+                  </Pressable>
+                </View>
+                {(() => {
+                  const partner = members.find((m) => m !== actor);
+                  if (!partner) return null;
+                  return (
+                    <Pressable
+                      onPress={() => {
+                        void Haptics.selectionAsync();
+                        setActor(partner);
+                      }}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      style={styles.proposalSwitchPartnerBtn}
+                    >
+                      <Text style={styles.proposalSwitchPartnerText}>
+                        👤 {lang === 'tr' ? `${partner}'a Geç ve Onayla` : `Switch to ${partner} to review`}
+                      </Text>
+                    </Pressable>
+                  );
+                })()}
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Temporary Feedback Banner */}
+        {proposalFeedback.length > 0 && (
+          <View style={styles.feedbackBanner}>
+            <Text style={styles.feedbackBannerText}>{proposalFeedback}</Text>
+            <Pressable onPress={() => setProposalFeedback('')}>
+              <Text style={styles.feedbackCloseText}>✕</Text>
+            </Pressable>
+          </View>
+        )}
+
+        {/* Gamified XP Progress Bar with Integrated Common Goal Header & Journey */}
+        <GamifiedProgressBar
+          total={total}
+          target={target}
+          goalTitle={activeGoal.title}
+          m25Title={activeGoal.m25Title}
+          m60Title={activeGoal.m60Title}
+          member1Name={maleMember}
+          member1Points={n1 ?? 0}
+          member2Name={femaleMember}
+          member2Points={n2 ?? 0}
+          color1={BAR_COLORS[0]}
+          color2={BAR_COLORS[1]}
+          onMilestonePress={(m) => setSelectedMilestone(m)}
+          onAdjustTarget={(delta) => adjustTargetPoints(delta)}
+          onEditGoal={openEditGoalModal}
+        />
+
+        {/* 2 Personal Goals: Kadının Hedefi & Erkeğin Hedefi */}
+        <View style={styles.personalGoalsSection}>
+          <PersonalGoalCard
+            member={femaleMember}
+            isFemale={true}
+            points={n2 ?? 0}
+            goal={femaleGoal}
+            onEdit={() => openEditPersonalGoalModal(femaleMember, true)}
+          />
+          <PersonalGoalCard
+            member={maleMember}
+            isFemale={false}
+            points={n1 ?? 0}
+            goal={maleGoal}
+            onEdit={() => openEditPersonalGoalModal(maleMember, false)}
+          />
+        </View>
+
+        {/* Primary Action Buttons: Add Task & Appreciation */}
+        {(() => {
+          const isAppreciated = hasAppreciatedToday(activities, actor);
+          return (
+            <View style={styles.actionRow}>
+              <BouncyPressable
+                variant="primary"
+                title={`⚡ ${t(lang, 'home.addPoints')}`}
+                onPress={() => setTaskModal(true)}
+                style={styles.actionButton}
+                textStyle={styles.actionText}
+              />
+              <BouncyPressable
+                variant={isAppreciated ? 'ghost' : 'amber'}
+                title={
+                  isAppreciated
+                    ? (lang === 'tr' ? '💖 Teşekkür Edildi' : '💖 Appreciated')
+                    : `💖 ${t(lang, 'home.thanks')}`
+                }
+                disabled={isAppreciated}
+                onPress={() => appreciate()}
+                style={styles.actionButton}
+                textStyle={styles.actionText}
+              />
+            </View>
+          );
+        })()}
+
+        {/* Section 1: Incoming Requests (Partner asked ME to do this) */}
+        {incoming.length > 0 && (
+          <View style={styles.incomingSection}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.incomingSectionTitle}>💌 {t(lang, 'home.incomingRequests')}</Text>
+              <View style={styles.incomingBadge}>
+                <Text style={styles.incomingBadgeText}>{incoming.length}</Text>
+              </View>
+            </View>
+            {incoming.map((item) => (
+              <View key={item.id} style={styles.requestCard}>
+                <View style={styles.requestLeft}>
+                  <Text style={styles.requestNote}>
+                    {item.requestedBy} {t(lang, 'home.requestedBy')}:
+                  </Text>
+                  <Text style={styles.requestTitle}>{item.title}</Text>
+                  <Text style={styles.requestPoints}>+{item.requestedPoints} XP</Text>
+                </View>
+                <View style={styles.requestActions}>
+                  <BouncyPressable
+                    variant="success"
+                    title={`✨ ${t(lang, 'home.markDone')}`}
+                    onPress={() => completeRequestedTask(item.id)}
+                    style={styles.actionMiniBtn}
+                    textStyle={styles.miniBtnText}
+                  />
+                  <BouncyPressable
+                    variant="ghost"
+                    title={`✕ ${t(lang, 'home.reject')}`}
+                    onPress={() => rejectActivity(item.id)}
+                    style={styles.actionMiniBtn}
+                    textStyle={styles.miniBtnText}
+                  />
                 </View>
               </View>
-            );
-          })}
-          {history.length > 3 && (
-            <Pressable
-              onPress={() => {
-                void Haptics.selectionAsync();
-                setShowAllHistory(!showAllHistory);
-              }}
-              style={styles.showMoreBtn}
-              hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }}
-            >
-              <Text style={styles.showMoreText}>
-                {showAllHistory
-                  ? (lang === 'tr' ? '▲ Daha Az Göster' : '▲ Show Less')
-                  : (lang === 'tr' ? `▼ Daha Fazla Göster (+${history.length - 3})` : `▼ Show More (+${history.length - 3})`)}
-              </Text>
-            </Pressable>
+            ))}
+          </View>
+        )}
+
+        {/* Section 2: Outgoing Requests (I asked partner to do this, partner hasn't done yet) */}
+        {outgoing.length > 0 && (
+          <View style={styles.outgoingSection}>
+            <Text style={styles.outgoingSubtitle}>
+              ⏳ {partnerName}{"'a gönderdiğin istekler:"}
+            </Text>
+            {outgoing.map((item) => (
+              <View key={item.id} style={styles.outgoingCard}>
+                <Text style={styles.outgoingText}>
+                  {item.title} (+{item.requestedPoints} XP)
+                </Text>
+                <BouncyPressable
+                  variant="ghost"
+                  title={t(lang, 'home.cancel')}
+                  onPress={() => rejectActivity(item.id)}
+                  style={styles.cancelMiniBtn}
+                  textStyle={styles.cancelMiniText}
+                />
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Section 3: Pending Approval (Activity is done; waiting for partner to approve) */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>{t(lang, 'home.pending')}</Text>
+          {pending.length > 0 && (
+            <View style={styles.pendingCountBadge}>
+              <Text style={styles.pendingCountText}>{pending.length}</Text>
+            </View>
           )}
         </View>
-      )}
+
+        {pending.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyText}>{t(lang, 'home.emptyPending')}</Text>
+          </View>
+        ) : (
+          <View style={styles.pendingList}>
+            {(showAllPending ? pending : pending.slice(0, 3)).map((item) => {
+              const isMyClaim = item.claimedBy === actor;
+              return (
+                <View key={item.id} style={styles.pendingCard}>
+                  <View style={styles.pendingLeft}>
+                    <Text style={styles.pendingClaimer}>
+                      {isMyClaim ? `👤 Sen (${item.claimedBy})` : `👤 ${item.claimedBy}`}
+                    </Text>
+                    <Text style={styles.pendingTaskTitle}>
+                      {item.title} {isMyClaim ? `(yaptın)` : `(yaptı)`}
+                    </Text>
+                    <Text style={styles.pendingPoints}>+{item.requestedPoints} XP</Text>
+                  </View>
+
+                  {isMyClaim ? (
+                    // Self-approval guarded: Actor sees waiting status, cannot approve own claim!
+                    <View style={styles.waitingBadge}>
+                      <Text style={styles.waitingText}>
+                        🕒 {partnerName}{"'ın"} {t(lang, 'home.waitingApproval')}
+                      </Text>
+                    </View>
+                  ) : (
+                    // Partner approval: Can approve or reject partner's completed work
+                    <View style={styles.pendingActions}>
+                      <TextInput
+                        style={styles.pointsInput}
+                        keyboardType="number-pad"
+                        placeholder={String(item.requestedPoints)}
+                        value={adjust[item.id] ?? ''}
+                        onChangeText={(v) => setAdjust((s) => ({ ...s, [item.id]: v }))}
+                      />
+                      <BouncyPressable
+                        variant="success"
+                        title={`✓ ${t(lang, 'home.approve')}`}
+                        onPress={() => approve(item.id, item.requestedPoints, item.templateId)}
+                        style={styles.miniBtn}
+                        textStyle={styles.miniBtnText}
+                      />
+                      <BouncyPressable
+                        variant="danger"
+                        title={`✕ ${t(lang, 'home.reject')}`}
+                        onPress={() => rejectActivity(item.id)}
+                        style={styles.miniBtn}
+                        textStyle={styles.miniBtnText}
+                      />
+                    </View>
+                  )}
+                </View>
+              );
+            })}
+            {pending.length > 3 && (
+              <Pressable
+                onPress={() => {
+                  void Haptics.selectionAsync();
+                  setShowAllPending(!showAllPending);
+                }}
+                style={styles.showMoreBtn}
+                hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }}
+              >
+                <Text style={styles.showMoreText}>
+                  {showAllPending
+                    ? (lang === 'tr' ? '▲ Daha Az Göster' : '▲ Show Less')
+                    : (lang === 'tr' ? `▼ Daha Fazla Göster (+${pending.length - 3})` : `▼ Show More (+${pending.length - 3})`)}
+                </Text>
+              </Pressable>
+            )}
+          </View>
+        )}
+
+        {/* History Section */}
+        <Text style={styles.sectionTitle}>{t(lang, 'home.history')}</Text>
+        {history.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyText}>{t(lang, 'home.empty')}</Text>
+          </View>
+        ) : (
+          <View style={styles.historyList}>
+            {(showAllHistory ? history : history.slice(0, 3)).map((item) => {
+              const isApproved = item.status === 'approved';
+              const actionSuffix = isApproved
+                ? (lang === 'tr' ? (item.type === 'appreciation' ? '(etti)' : '(yaptı)') : (item.type === 'appreciation' ? '(appreciated)' : '(did it)'))
+                : (lang === 'tr' ? '(olmadı)' : '(rejected)');
+              return (
+                <View key={item.id} style={[styles.historyCard, !isApproved && styles.historyRejectedCard]}>
+                  <View style={styles.historyRow}>
+                    <Text style={styles.historyName} numberOfLines={1}>{item.claimedBy}</Text>
+                    <Text style={[styles.historyItemTitle, !isApproved && styles.rejectedText]} numberOfLines={1}>
+                      {item.title} {actionSuffix}
+                    </Text>
+                    <View
+                      style={[
+                        styles.historyBadge,
+                        isApproved ? styles.badgeSuccess : styles.badgeRejected,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.historyBadgeText,
+                          isApproved ? styles.badgeSuccessText : styles.badgeRejectedText,
+                        ]}
+                      >
+                        {isApproved ? `+${item.points} XP` : t(lang, 'home.rejected')}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              );
+            })}
+            {history.length > 3 && (
+              <Pressable
+                onPress={() => {
+                  void Haptics.selectionAsync();
+                  setShowAllHistory(!showAllHistory);
+                }}
+                style={styles.showMoreBtn}
+                hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }}
+              >
+                <Text style={styles.showMoreText}>
+                  {showAllHistory
+                    ? (lang === 'tr' ? '▲ Daha Az Göster' : '▲ Show Less')
+                    : (lang === 'tr' ? `▼ Daha Fazla Göster (+${history.length - 3})` : `▼ Show More (+${history.length - 3})`)}
+                </Text>
+              </Pressable>
+            )}
+          </View>
+        )}
       </ScrollView>
 
-      {/* Task Picker Modal (with Hybrid Switch: Ben Yaptım vs Partnerime İste) */}
+      {/* Task Picker Modal */}
       <Modal visible={taskModal} transparent animationType="slide">
         <View style={styles.modalBackdrop}>
           <View style={styles.sheetContainer}>
@@ -744,22 +751,26 @@ export function HomeScreen({ lang }: { lang: Lang }) {
               />
             </View>
 
-            {/* Hybrid Mode Switcher */}
+            {/* Mode Switcher */}
             <View style={styles.modeSwitcher}>
-              <BouncyPressable
-                variant={taskMode === 'self' ? 'primary' : 'ghost'}
-                title={`🙋 ${t(lang, 'home.tabSelf')}`}
-                onPress={() => setTaskMode('self')}
-                style={styles.modeBtn}
-                textStyle={styles.modeBtnText}
-              />
-              <BouncyPressable
-                variant={taskMode === 'partner' ? 'amber' : 'ghost'}
-                title={`💌 ${t(lang, 'home.tabPartner')}`}
-                onPress={() => setTaskMode('partner')}
-                style={styles.modeBtn}
-                textStyle={styles.modeBtnText}
-              />
+              <View style={{ flex: 1 }}>
+                <BouncyPressable
+                  variant={taskMode === 'self' ? 'primary' : 'ghost'}
+                  title={`🙋 ${t(lang, 'home.tabSelf')}`}
+                  onPress={() => setTaskMode('self')}
+                  style={styles.modeBtn}
+                  textStyle={styles.modeBtnText}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <BouncyPressable
+                  variant={taskMode === 'partner' ? 'amber' : 'ghost'}
+                  title={`💌 ${t(lang, 'home.tabPartner')}`}
+                  onPress={() => setTaskMode('partner')}
+                  style={styles.modeBtn}
+                  textStyle={styles.modeBtnText}
+                />
+              </View>
             </View>
 
             {/* Category Tabs */}
@@ -779,7 +790,7 @@ export function HomeScreen({ lang }: { lang: Lang }) {
               })}
             </View>
 
-            {/* Task list for selected category */}
+            {/* Task list */}
             <FlatList
               data={filteredTemplates}
               keyExtractor={(tpl) => tpl.id}
@@ -802,9 +813,23 @@ export function HomeScreen({ lang }: { lang: Lang }) {
               }}
             />
 
-            {/* Custom Quest Creator Accordion */}
+            {/* Custom Card Creator */}
             <View style={styles.customSection}>
-              <Text style={styles.customHeading}>✨ {t(lang, 'home.customTitle')}</Text>
+              <View style={styles.customSectionHeader}>
+                <Text style={styles.customHeading}>✨ {t(lang, 'home.customTitle')}</Text>
+                <View style={styles.categoryChipsRow}>
+                  {CATEGORIES.map((c) => (
+                    <BouncyPressable
+                      key={c}
+                      title={customCat === c ? `• ${t(lang, `cats.${c}`)}` : t(lang, `cats.${c}`)}
+                      variant={customCat === c ? 'primary' : 'ghost'}
+                      onPress={() => setCustomCat(c)}
+                      style={styles.categoryChip}
+                      textStyle={styles.categoryChipText}
+                    />
+                  ))}
+                </View>
+              </View>
               <TextInput
                 style={styles.input}
                 placeholder={t(lang, 'home.taskPlaceholder')}
@@ -828,18 +853,6 @@ export function HomeScreen({ lang }: { lang: Lang }) {
                   style={styles.saveCustomBtn}
                 />
               </View>
-              <View style={styles.categoryChipsRow}>
-                {CATEGORIES.map((c) => (
-                  <BouncyPressable
-                    key={c}
-                    title={customCat === c ? `• ${t(lang, `cats.${c}`)}` : t(lang, `cats.${c}`)}
-                    variant={customCat === c ? 'primary' : 'ghost'}
-                    onPress={() => setCustomCat(c)}
-                    style={styles.categoryChip}
-                    textStyle={styles.categoryChipText}
-                  />
-                ))}
-              </View>
               {error.length > 0 && <Text style={styles.error}>{error}</Text>}
             </View>
           </View>
@@ -854,11 +867,11 @@ export function HomeScreen({ lang }: { lang: Lang }) {
               <Text style={styles.sheetTitle}>
                 {editingGoalTarget === 'common'
                   ? (goalModalMode === 'edit'
-                      ? (lang === 'tr' ? '✏️ Ortak Hedefi Düzenle' : '✏️ Edit Common Goal')
-                      : (lang === 'tr' ? '🏆 Yeni Ortak Hedef' : '🏆 New Common Goal'))
+                    ? (lang === 'tr' ? '✏️ Ortak Hedefi Düzenle' : '✏️ Edit Common Goal')
+                    : (lang === 'tr' ? '🏆 Yeni Ortak Hedef' : '🏆 New Common Goal'))
                   : (editingGoalTarget === femaleMember
-                      ? `🍷 ${femaleMember}'nin Hedefi`
-                      : `🎮 ${maleMember}'nin Hedefi`)}
+                    ? `🍷 ${femaleMember}'nin Hedefi`
+                    : `🎮 ${maleMember}'nin Hedefi`)}
               </Text>
               <BouncyPressable
                 variant="ghost"
@@ -921,8 +934,8 @@ export function HomeScreen({ lang }: { lang: Lang }) {
                 {editingGoalTarget === 'common'
                   ? `🏆 ${t(lang, 'home.goal')} (Büyük Ödül - %100)`
                   : (editingGoalTarget === femaleMember
-                      ? `🍷 ${femaleMember}'nin Büyük Hedefi`
-                      : `🎮 ${maleMember}'nin Büyük Hedefi`)}
+                    ? `🍷 ${femaleMember}'nin Büyük Hedefi`
+                    : `🎮 ${maleMember}'nin Büyük Hedefi`)}
               </Text>
               <TextInput
                 style={styles.input}
@@ -1108,8 +1121,8 @@ export function HomeScreen({ lang }: { lang: Lang }) {
                     members.length >= 2
                       ? (lang === 'tr' ? '🤝 Eşime Onaya Gönder' : '🤝 Send for Partner Approval')
                       : (goalModalMode === 'edit'
-                          ? `💾 ${t(lang, 'home.updateGoal')}`
-                          : `🚀 ${t(lang, 'home.start')}`)
+                        ? `💾 ${t(lang, 'home.updateGoal')}`
+                        : `🚀 ${t(lang, 'home.start')}`)
                   }
                   onPress={saveGoal}
                   style={styles.startGoalBtn}
@@ -1231,6 +1244,7 @@ export function HomeScreen({ lang }: { lang: Lang }) {
                     onPress={() => {
                       setEditingTask(null);
                       setError('');
+                      setTaskModal(true);
                     }}
                     style={styles.closeButton}
                   />
@@ -1240,14 +1254,16 @@ export function HomeScreen({ lang }: { lang: Lang }) {
                   {templateTitle(editingTask, lang)}
                 </Text>
                 <Text style={styles.taskEditNotice}>
-                  {t(lang, 'home.minMaxPointsNotice')} (10 - 50 XP)
+                  {lang === 'tr'
+                    ? `${editingTask.minPoints} ile ${editingTask.maxPoints} XP arasında olmalıdır`
+                    : `Must be between ${editingTask.minPoints} and ${editingTask.maxPoints} XP`}
                 </Text>
 
                 <View style={styles.taskEditStepperRow}>
                   <Pressable
                     onPress={() => {
                       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      const n = Math.max(10, (Number(editingTaskPoints) || 10) - 5);
+                      const n = Math.max(editingTask.minPoints, (Number(editingTaskPoints) || editingTask.minPoints) - 5);
                       setEditingTaskPoints(String(n));
                     }}
                     style={styles.taskStepperBigBtn}
@@ -1268,7 +1284,7 @@ export function HomeScreen({ lang }: { lang: Lang }) {
                   <Pressable
                     onPress={() => {
                       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                      const n = Math.min(50, (Number(editingTaskPoints) || 10) + 5);
+                      const n = Math.min(editingTask.maxPoints, (Number(editingTaskPoints) || editingTask.minPoints) + 5);
                       setEditingTaskPoints(String(n));
                     }}
                     style={styles.taskStepperBigBtn}
@@ -1282,21 +1298,24 @@ export function HomeScreen({ lang }: { lang: Lang }) {
                 {error.length > 0 && <Text style={styles.error}>{error}</Text>}
 
                 <View style={styles.taskEditActions}>
-                  <BouncyPressable
-                    variant="primary"
-                    title={t(lang, 'home.save')}
-                    onPress={saveTaskPoints}
-                    style={{ flex: 1 }}
-                  />
-                  <BouncyPressable
-                    variant="ghost"
-                    title={t(lang, 'home.cancel')}
-                    onPress={() => {
-                      setEditingTask(null);
-                      setError('');
-                    }}
-                    style={{ flex: 1 }}
-                  />
+                  <View style={{ flex: 1 }}>
+                    <BouncyPressable
+                      variant="primary"
+                      title={t(lang, 'home.save')}
+                      onPress={saveTaskPoints}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <BouncyPressable
+                      variant="ghost"
+                      title={t(lang, 'home.cancel')}
+                      onPress={() => {
+                        setEditingTask(null);
+                        setError('');
+                        setTaskModal(true);
+                      }}
+                    />
+                  </View>
                 </View>
               </>
             )}
@@ -1754,13 +1773,13 @@ const styles = StyleSheet.create({
   },
   sheetContainer: {
     backgroundColor: '#ffffff',
-    borderTopLeftRadius: 28,
-    borderTopRightRadius: 28,
-    paddingTop: 16,
-    paddingHorizontal: 18,
-    paddingBottom: 24,
-    maxHeight: '94%',
-    gap: 10,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 12,
+    paddingHorizontal: 14,
+    paddingBottom: 20,
+    height: '92%',
+    gap: 8,
   },
   sheetHeader: {
     flexDirection: 'row',
@@ -1768,15 +1787,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   sheetTitle: {
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: '800',
     color: '#0f172a',
   },
   closeButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    minHeight: 36,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    minHeight: 30,
     paddingVertical: 0,
     paddingHorizontal: 0,
     justifyContent: 'center',
@@ -1789,41 +1808,65 @@ const styles = StyleSheet.create({
     padding: 4,
     gap: 4,
   },
+  floatingModeSwitcher: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255,255,255,0.96)',
+    borderRadius: 18,
+    padding: 5,
+    gap: 5,
+    marginHorizontal: 20,
+    marginBottom: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 4,
+  },
   modeBtn: {
-    flex: 1,
-    paddingVertical: 8,
-    borderRadius: 10,
-    minHeight: 38,
+    paddingVertical: 5,
+    borderRadius: 8,
+    minHeight: 30,
   },
   modeBtnText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
   },
   categoryTabs: {
     flexDirection: 'row',
-    gap: 6,
+    gap: 4,
   },
   categoryTab: {
     flex: 1,
-    paddingVertical: 8,
-    borderRadius: 12,
-    minHeight: 38,
+    paddingVertical: 5,
+    borderRadius: 8,
+    minHeight: 28,
   },
   categoryTabText: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '700',
   },
   taskList: {
-    maxHeight: 260,
+    flex: 1,
   },
   customSection: {
     borderTopWidth: 1,
     borderTopColor: '#f1f5f9',
-    paddingTop: 12,
-    gap: 8,
+    paddingTop: 8,
+    gap: 6,
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    padding: 10,
+    marginTop: 2,
+  },
+  customSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 4,
   },
   customHeading: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '700',
     color: '#334155',
   },
@@ -1831,9 +1874,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8fafc',
     borderColor: '#e2e8f0',
     borderWidth: 1.5,
-    borderRadius: 12,
-    padding: 12,
-    fontSize: 14,
+    borderRadius: 10,
+    padding: 8,
+    fontSize: 13,
     color: '#0f172a',
   },
   inputLabel: {
@@ -1848,7 +1891,8 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   saveCustomBtn: {
-    minWidth: 90,
+    minWidth: 72,
+    paddingVertical: 8,
   },
   categoryChipsRow: {
     flexDirection: 'row',

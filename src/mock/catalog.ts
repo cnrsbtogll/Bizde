@@ -28,18 +28,40 @@ export interface RewardTemplate {
 export const CATEGORIES: TaskCategory[] = ['ev', 'ilgi', 'vakit', 'plan'];
 
 export const TASK_TEMPLATES: TaskTemplate[] = [
-  { id: 'ev-bulasik', category: 'ev', tr: 'Bulaşıkları yıka', en: 'Do the dishes', defaultPoints: 15, minPoints: 10, maxPoints: 30 },
-  { id: 'ev-cop', category: 'ev', tr: 'Çöpü çıkar', en: 'Take out the trash', defaultPoints: 10, minPoints: 10, maxPoints: 20 },
-  { id: 'ev-market', category: 'ev', tr: 'Market alışverişi yap', en: 'Do the grocery run', defaultPoints: 25, minPoints: 15, maxPoints: 40 },
-  { id: 'ev-yemek', category: 'ev', tr: 'Yemek hazırla', en: 'Cook a meal', defaultPoints: 30, minPoints: 20, maxPoints: 50 },
-  { id: 'ev-camasir', category: 'ev', tr: 'Çamaşır yıka / katla', en: 'Laundry wash / fold', defaultPoints: 20, minPoints: 10, maxPoints: 30 },
-  { id: 'ilgi-kahve', category: 'ilgi', tr: 'Kahve hazırla', en: 'Make coffee', defaultPoints: 15, minPoints: 10, maxPoints: 20 },
-  { id: 'ilgi-telefonsuz', category: 'ilgi', tr: 'Telefonsuz 30 dakika', en: '30 min phone-free time', defaultPoints: 20, minPoints: 10, maxPoints: 30 },
-  { id: 'ilgi-not', category: 'ilgi', tr: 'Takdir notu yaz', en: 'Write an appreciation note', defaultPoints: 15, minPoints: 10, maxPoints: 25 },
-  { id: 'vakit-yuruyus', category: 'vakit', tr: 'Birlikte yürüyüş', en: 'Walk together', defaultPoints: 25, minPoints: 15, maxPoints: 40 },
-  { id: 'vakit-film', category: 'vakit', tr: 'Film gecesi kur', en: 'Set up movie night', defaultPoints: 20, minPoints: 10, maxPoints: 30 },
-  { id: 'plan-fatura', category: 'plan', tr: 'Faturaları öde', en: 'Pay the bills', defaultPoints: 20, minPoints: 10, maxPoints: 30 },
-  { id: 'plan-hafta', category: 'plan', tr: 'Haftalık plan yap', en: 'Plan the week', defaultPoints: 25, minPoints: 15, maxPoints: 35 },
+  // 🏠 Ev
+  { id: 'ev-bulasik',   category: 'ev', tr: 'Bulaşıkları yıka',            en: 'Do the dishes',             defaultPoints: 15, minPoints: 10, maxPoints: 30 },
+  { id: 'ev-cop',       category: 'ev', tr: 'Çöpü çıkar',                  en: 'Take out the trash',         defaultPoints: 10, minPoints: 10, maxPoints: 20 },
+  { id: 'ev-market',    category: 'ev', tr: 'Market alışverişi yap',        en: 'Do the grocery run',         defaultPoints: 25, minPoints: 15, maxPoints: 40 },
+  { id: 'ev-yemek',     category: 'ev', tr: 'Yemek hazırla',                en: 'Cook a meal',                defaultPoints: 30, minPoints: 20, maxPoints: 50 },
+  { id: 'ev-camasir',   category: 'ev', tr: 'Çamaşır yıka / katla',         en: 'Laundry wash / fold',        defaultPoints: 20, minPoints: 10, maxPoints: 30 },
+  { id: 'ev-supur',     category: 'ev', tr: 'Süpür / mop at',               en: 'Vacuum / mop floors',        defaultPoints: 20, minPoints: 10, maxPoints: 30 },
+  { id: 'ev-banyo',     category: 'ev', tr: 'Banyo temizle',                en: 'Clean the bathroom',         defaultPoints: 25, minPoints: 15, maxPoints: 40 },
+  { id: 'ev-buzdolabi', category: 'ev', tr: 'Buzdolabını düzenle',          en: 'Tidy the fridge',            defaultPoints: 20, minPoints: 10, maxPoints: 30 },
+  { id: 'ev-cop-geri',  category: 'ev', tr: 'Geri dönüşüm kutusunu boşalt', en: 'Empty recycling bin',        defaultPoints: 10, minPoints: 10, maxPoints: 20 },
+
+  // 💖 İlgi
+  { id: 'ilgi-kahve',      category: 'ilgi', tr: 'Kahve hazırla',                en: 'Make coffee',                   defaultPoints: 15, minPoints: 10, maxPoints: 20 },
+  { id: 'ilgi-telefonsuz', category: 'ilgi', tr: 'Telefonsuz 30 dakika',          en: '30 min phone-free time',         defaultPoints: 20, minPoints: 10, maxPoints: 30 },
+  { id: 'ilgi-not',        category: 'ilgi', tr: 'Takdir notu yaz',               en: 'Write an appreciation note',     defaultPoints: 15, minPoints: 10, maxPoints: 25 },
+  { id: 'ilgi-sarki',      category: 'ilgi', tr: 'Eşine şarkı / playlist hazırla', en: 'Make a playlist for partner',   defaultPoints: 20, minPoints: 10, maxPoints: 30 },
+  { id: 'ilgi-masaj',      category: 'ilgi', tr: '10 dk boyun / sırt masajı',     en: '10 min neck / back massage',     defaultPoints: 25, minPoints: 15, maxPoints: 40 },
+  { id: 'ilgi-surpriz',    category: 'ilgi', tr: 'Küçük sürpriz hazırla',          en: 'Prepare a small surprise',       defaultPoints: 20, minPoints: 15, maxPoints: 35 },
+
+  // ☕ Vakit
+  { id: 'vakit-film-sec',  category: 'vakit', tr: 'Akşam filmi / dizi seç',        en: 'Pick a movie / show for tonight', defaultPoints: 10, minPoints: 10, maxPoints: 20 },
+  { id: 'vakit-misir',     category: 'vakit', tr: 'Film gecesi mısırı hazırla',    en: 'Prep popcorn for movie night',    defaultPoints: 10, minPoints: 10, maxPoints: 20 },
+  { id: 'vakit-yuruyus-plan', category: 'vakit', tr: 'Yürüyüş planla (yer + saat)', en: 'Plan a walk (place + time)',     defaultPoints: 15, minPoints: 10, maxPoints: 25 },
+  { id: 'vakit-kahvalti',  category: 'vakit', tr: 'Hafta sonu kahvaltı hazırla',   en: 'Prepare weekend breakfast',       defaultPoints: 25, minPoints: 15, maxPoints: 40 },
+  { id: 'vakit-restoran',  category: 'vakit', tr: 'Restoran araştır / rezerve et', en: 'Research & book a restaurant',    defaultPoints: 20, minPoints: 10, maxPoints: 30 },
+  { id: 'vakit-fotograf',  category: 'vakit', tr: 'Birlikte fotoğraf çek',         en: 'Take a photo together',           defaultPoints: 10, minPoints: 10, maxPoints: 20 },
+
+  // 🗓️ Plan
+  { id: 'plan-fatura',    category: 'plan', tr: 'Faturaları öde',            en: 'Pay the bills',            defaultPoints: 20, minPoints: 10, maxPoints: 30 },
+  { id: 'plan-hafta',     category: 'plan', tr: 'Haftalık plan yap',         en: 'Plan the week',            defaultPoints: 25, minPoints: 15, maxPoints: 35 },
+  { id: 'plan-randevu',   category: 'plan', tr: 'Doktor / diş randevusu al', en: 'Book doctor / dentist',    defaultPoints: 20, minPoints: 10, maxPoints: 30 },
+  { id: 'plan-bütce',     category: 'plan', tr: 'Aylık bütçeyi gözden geçir', en: 'Review monthly budget',  defaultPoints: 25, minPoints: 15, maxPoints: 35 },
+  { id: 'plan-tatil',     category: 'plan', tr: 'Tatil / gezi araştır',      en: 'Research a trip / vacation', defaultPoints: 20, minPoints: 10, maxPoints: 30 },
+  { id: 'plan-egzersiz',  category: 'plan', tr: 'Haftalık spor planını yap', en: 'Plan weekly workout schedule', defaultPoints: 15, minPoints: 10, maxPoints: 25 },
 ];
 
 export const REWARD_TEMPLATES: RewardTemplate[] = [
