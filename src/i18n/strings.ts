@@ -37,7 +37,7 @@ const tr: Dict = {
     reject: 'Reddet',
     cancel: 'Vazgeç',
     badPoints: 'Puan 10-50 arası olmalı.',
-    thanksTitle: 'Takdir',
+    thanksTitle: 'Teşekkür',
     claimedBy: 'iddia',
     waitingApproval: 'onay bekliyor',
     approvedBy: 'onayladı',

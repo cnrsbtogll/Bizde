@@ -48,9 +48,12 @@ const BAR_COLORS = ['#0f766e', '#ea580c'];
 
 export function HomeScreen({ lang }: { lang: Lang }) {
   const {
+    pairingCode,
+    partnerJoined,
+    dismissPairingCode,
     members,
     actor,
-    setActor,
+    reset,
     activeGoal,
     customTemplates,
     taskPointOverrides,
@@ -309,45 +312,38 @@ export function HomeScreen({ lang }: { lang: Lang }) {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Top Bar: Active player chips + Streak Flame Badge */}
+        {/* Top Bar: Welcome greeting + Streak Flame Badge */}
         <View style={styles.headerBar}>
           <View style={styles.actorGroup}>
-            <Text style={styles.actorLabelText}>{t(lang, 'home.actorLabel')}:</Text>
-            <View style={styles.memberChips}>
-              {members.map((m) => {
-                const isActive = actor === m;
-                return (
-                  <Pressable
-                    key={m}
-                    onPress={() => {
-                      void Haptics.selectionAsync();
-                      setActor(m);
-                    }}
-                    hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
-                    style={[
-                      styles.chipButton,
-                      isActive ? styles.chipButtonActive : styles.chipButtonInactive,
-                    ]}
-                    accessibilityRole="button"
-                    accessibilityLabel={`Kullanıcı ${m}`}
-                  >
-                    <Text
-                      style={[
-                        styles.chipText,
-                        isActive ? styles.chipTextActive : styles.chipTextInactive,
-                      ]}
-                    >
-                      {m}
-                    </Text>
-                  </Pressable>
-                );
-              })}
-            </View>
+            <Text style={styles.welcomeText}>
+              👋 {lang === 'tr' ? `Hoş geldin, ${actor || members[0] || ''}` : `Welcome, ${actor || members[0] || ''}`}
+            </Text>
           </View>
 
           {/* Dynamic Streak Badge with Lottie Flame */}
           <StreakBadge streakDays={streak} label={lang === 'tr' ? 'Gün' : 'Days'} />
         </View>
+
+        {pairingCode && !partnerJoined && (
+          <View style={{ backgroundColor: '#ecfdf5', padding: 14, borderRadius: 16, marginBottom: 16, alignItems: 'center', borderColor: '#a7f3d0', borderWidth: 1.5, position: 'relative' }}>
+            <Pressable
+              onPress={dismissPairingCode}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              style={{ position: 'absolute', top: 10, right: 12, padding: 4 }}
+            >
+              <Text style={{ color: '#059669', fontSize: 16, fontWeight: '700' }}>✕</Text>
+            </Pressable>
+            <Text style={{ color: '#059669', fontWeight: '700', fontSize: 13, textAlign: 'center', paddingHorizontal: 20 }}>
+              {lang === 'tr' ? 'Partnerine bu kodu vererek seni eklemesini sağlayabilirsin:' : 'Share this code with your partner to join:'}
+            </Text>
+            <Text style={{ fontSize: 30, fontWeight: '900', letterSpacing: 6, color: '#065f46', marginVertical: 6 }}>
+              {pairingCode}
+            </Text>
+            <Text style={{ color: '#64748b', fontSize: 11, fontWeight: '600' }}>
+              {lang === 'tr' ? '⏳ Eşiniz koda katıldığında bu alan otomatik kapanır.' : '⏳ Automatically closes when your partner joins.'}
+            </Text>
+          </View>
+        )}
 
         {/* Mutual Goal Proposal Banner */}
         {pendingGoalProposal && (
@@ -433,24 +429,6 @@ export function HomeScreen({ lang }: { lang: Lang }) {
                     </Text>
                   </Pressable>
                 </View>
-                {(() => {
-                  const partner = members.find((m) => m !== actor);
-                  if (!partner) return null;
-                  return (
-                    <Pressable
-                      onPress={() => {
-                        void Haptics.selectionAsync();
-                        setActor(partner);
-                      }}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      style={styles.proposalSwitchPartnerBtn}
-                    >
-                      <Text style={styles.proposalSwitchPartnerText}>
-                        👤 {lang === 'tr' ? `${partner}'a Geç ve Onayla` : `Switch to ${partner} to review`}
-                      </Text>
-                    </Pressable>
-                  );
-                })()}
               </View>
             )}
           </View>
@@ -537,6 +515,7 @@ export function HomeScreen({ lang }: { lang: Lang }) {
                 variant="primary"
                 title={`⚡ ${t(lang, 'home.addPoints')}`}
                 onPress={() => setTaskModal(true)}
+                wrapperStyle={styles.actionButtonWrapper}
                 style={styles.actionButton}
                 textStyle={styles.actionText}
               />
@@ -549,6 +528,7 @@ export function HomeScreen({ lang }: { lang: Lang }) {
                 }
                 disabled={isAppreciated}
                 onPress={() => appreciate()}
+                wrapperStyle={styles.actionButtonWrapper}
                 style={styles.actionButton}
                 textStyle={styles.actionText}
               />
@@ -715,15 +695,17 @@ export function HomeScreen({ lang }: { lang: Lang }) {
           <View style={styles.historyList}>
             {(showAllHistory ? history : history.slice(0, 3)).map((item) => {
               const isApproved = item.status === 'approved';
-              const actionSuffix = isApproved
-                ? (lang === 'tr' ? (item.type === 'appreciation' ? '(etti)' : '(yaptı)') : (item.type === 'appreciation' ? '(appreciated)' : '(did it)'))
-                : (lang === 'tr' ? '(olmadı)' : '(rejected)');
+              const isAppreciation = item.type === 'appreciation' || item.title.toLowerCase().includes('takdir') || item.title.toLowerCase().includes('teşekkür');
+              const displayText = isAppreciation
+                ? (lang === 'tr' ? 'Teşekkür etti' : 'Said thanks')
+                : `${item.title} ${isApproved ? (lang === 'tr' ? '(yaptı)' : '(did it)') : (lang === 'tr' ? '(olmadı)' : '(rejected)')}`;
+
               return (
                 <View key={item.id} style={[styles.historyCard, !isApproved && styles.historyRejectedCard]}>
                   <View style={styles.historyRow}>
                     <Text style={styles.historyName} numberOfLines={1}>{item.claimedBy}</Text>
                     <Text style={[styles.historyItemTitle, !isApproved && styles.rejectedText]} numberOfLines={1}>
-                      {item.title} {actionSuffix}
+                      {displayText}
                     </Text>
                     <View
                       style={[
@@ -762,6 +744,27 @@ export function HomeScreen({ lang }: { lang: Lang }) {
             )}
           </View>
         )}
+
+        {/* Reset / Logout Button */}
+        <View style={{ alignItems: 'center', marginTop: 24, marginBottom: 40 }}>
+          <BouncyPressable
+            variant="ghost"
+            title={lang === 'tr' ? '🚪 Eşleşmeden Çık (Sıfırla)' : '🚪 Leave Couple (Reset)'}
+            onPress={() => {
+              Alert.alert(
+                lang === 'tr' ? 'Emin misiniz?' : 'Are you sure?',
+                lang === 'tr' ? 'Mevcut eşleşmeden çıkıp başlangıç ekranına döneceksiniz.' : 'You will leave the current couple and return to the start screen.',
+                [
+                  { text: lang === 'tr' ? 'Vazgeç' : 'Cancel', style: 'cancel' },
+                  { text: lang === 'tr' ? 'Çıkış Yap' : 'Leave', style: 'destructive', onPress: () => reset() }
+                ]
+              );
+            }}
+            style={{ paddingVertical: 8, paddingHorizontal: 16 }}
+            textStyle={{ color: '#ef4444', fontSize: 13, fontWeight: '600' }}
+          />
+        </View>
+
       </ScrollView>
 
       {/* Task Picker Modal */}
@@ -1421,23 +1424,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  chipButtonActive: {
-    backgroundColor: '#2563eb',
-  },
-  chipButtonInactive: {
-    backgroundColor: '#f1f5f9',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  chipText: {
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  chipTextActive: {
-    color: '#ffffff',
-  },
-  chipTextInactive: {
-    color: '#475569',
+  welcomeText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#0f172a',
+    letterSpacing: -0.2,
   },
   goalHeader: {
     gap: 2,
@@ -1496,18 +1487,21 @@ const styles = StyleSheet.create({
   actionRow: {
     flexDirection: 'row',
     gap: 8,
-    marginVertical: 2,
+    marginVertical: 4,
+  },
+  actionButtonWrapper: {
+    flex: 1,
   },
   actionButton: {
-    flex: 1,
-    minHeight: 34,
-    paddingVertical: 7,
-    paddingHorizontal: 10,
-    borderRadius: 10,
+    width: '100%',
+    minHeight: 38,
+    paddingVertical: 8,
+    paddingHorizontal: 6,
+    borderRadius: 12,
     borderBottomWidth: 3,
   },
   actionText: {
-    fontSize: 12.5,
+    fontSize: 13,
     fontWeight: '800',
   },
   incomingSection: {

@@ -21,6 +21,7 @@ interface BouncyPressableProps extends PropsWithChildren {
   title?: string;
   variant?: ButtonVariant;
   style?: StyleProp<ViewStyle>;
+  wrapperStyle?: StyleProp<ViewStyle>;
   textStyle?: StyleProp<TextStyle>;
   hapticStyle?: Haptics.ImpactFeedbackStyle;
   disabled?: boolean;
@@ -37,6 +38,7 @@ export function BouncyPressable({
   title,
   variant = 'primary',
   style,
+  wrapperStyle,
   textStyle,
   hapticStyle = Haptics.ImpactFeedbackStyle.Light,
   disabled = false,
@@ -75,7 +77,7 @@ export function BouncyPressable({
       onPressIn={handlePressIn}
       onPressOut={handlePressOut}
       disabled={disabled}
-      style={[styles.wrapper, disabled && styles.disabledWrapper]}
+      style={[styles.wrapper, wrapperStyle, disabled && styles.disabledWrapper]}
     >
       <Animated.View
         style={[
@@ -91,7 +93,12 @@ export function BouncyPressable({
         {children ? (
           children
         ) : (
-          <Text style={[styles.title, { color: colors.text }, textStyle]}>
+          <Text
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.8}
+            style={[styles.title, { color: colors.text }, textStyle]}
+          >
             {title}
           </Text>
         )}

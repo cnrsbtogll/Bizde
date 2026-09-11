@@ -13,6 +13,7 @@ export interface SharedCoupleData {
   taskPointOverrides: Record<string, number>;
   personalGoals: Record<string, Goal>;
   pendingGoalProposal: GoalProposal | null;
+  partnerJoined?: boolean;
 }
 
 export function subscribeToCouple(
@@ -30,19 +31,46 @@ export function subscribeToCouple(
   });
 }
 
+function cleanForFirestore<T>(data: T): T {
+  return JSON.parse(JSON.stringify(data));
+}
+
 export async function initCoupleDocument(coupleId: string, initialData: SharedCoupleData) {
   const fb = getFirebase();
   if (!fb) return;
-  const docRef = doc(fb.db, 'couples', coupleId);
-  const snapshot = await getDoc(docRef);
-  if (!snapshot.exists()) {
-    await setDoc(docRef, initialData);
+  try {
+    const docRef = doc(fb.db, 'couples', coupleId);
+    const snapshot = await getDoc(docRef);
+    if (!snapshot.exists()) {
+      await setDoc(docRef, cleanForFirestore(initialData));
+    }
+  } catch (err) {
+    console.error('Error init couple document:', err);
   }
+}
+
+export async function fetchCoupleDocument(coupleId: string): Promise<SharedCoupleData | null> {
+  const fb = getFirebase();
+  if (!fb) return null;
+  try {
+    const docRef = doc(fb.db, 'couples', coupleId);
+    const snapshot = await getDoc(docRef);
+    if (snapshot.exists()) {
+      return snapshot.data() as SharedCoupleData;
+    }
+  } catch (err) {
+    console.error('Error fetching couple document:', err);
+  }
+  return null;
 }
 
 export async function updateCoupleDocument(coupleId: string, updates: Partial<SharedCoupleData>) {
   const fb = getFirebase();
   if (!fb) return;
-  const docRef = doc(fb.db, 'couples', coupleId);
-  await updateDoc(docRef, updates);
+  try {
+    const docRef = doc(fb.db, 'couples', coupleId);
+    await updateDoc(docRef, cleanForFirestore(updates));
+  } catch (err) {
+    console.error('Error updating couple document:', err);
+  }
 }

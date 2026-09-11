@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { APPRECIATION_POINTS, MAX_TASK_POINTS, MIN_TASK_POINTS } from '@/lib/progress';
 import { clampPoints, findTemplate, type TaskTemplate, type RewardTemplate } from '@/mock/catalog';
 import { signInAnon } from '@/firebase';
-import { subscribeToCouple, updateCoupleDocument, initCoupleDocument, type SharedCoupleData } from '@/services/firestore';
+import { subscribeToCouple, updateCoupleDocument, initCoupleDocument, fetchCoupleDocument, type SharedCoupleData } from '@/services/firestore';
 
 export type ActivityStatus = 'requested' | 'pending' | 'approved' | 'rejected';
 
@@ -54,17 +54,19 @@ interface BizdeState {
   actor: string;
   coupleId: string | null;
   pairingCode: string | null;
+  partnerJoined: boolean;
   isPaired: boolean;
   activeGoal: Goal;
   pastGoals: FinishedGoal[];
   activities: Activity[];
   customTemplates: TaskTemplate[];
   customRewards: RewardTemplate[];
-  signIn: (displayName: string) => void;
+  signIn: (displayName: string) => Promise<void>;
   setPartner: (name: string) => void;
   setActor: (name: string) => void;
   createCode: () => string;
-  joinCode: (code: string) => boolean;
+  joinCode: (code: string) => Promise<boolean>;
+  dismissPairingCode: () => void;
   /** Görev iddiası: puan aralığa sıkışır, status pending. */
   claimTask: (title: string, points: number, templateId?: string) => string | null;
   /** Partnerden görev isteme: status requested, puanı yapacak partnere atanır. */
@@ -126,6 +128,7 @@ export const useBizde = create<BizdeState>()((set, get) => ({
   actor: '',
   coupleId: null,
   pairingCode: null,
+  partnerJoined: false,
   isPaired: false,
   activeGoal: { ...DEFAULT_GOAL },
   pastGoals: [],
@@ -136,15 +139,16 @@ export const useBizde = create<BizdeState>()((set, get) => ({
   personalGoals: {},
   pendingGoalProposal: null,
 
-  signIn: (displayName) => {
+  signIn: async (displayName) => {
     const name = displayName.trim();
     if (!name) return;
     const { members } = get();
     const next = members.includes(name) ? members : [name, ...members].slice(0, 2);
     set({ members: next, actor: name, uid: `local-${newId('u')}` });
-    void signInAnon().then((remoteUid) => {
-      if (remoteUid) set({ uid: remoteUid });
-    });
+    const remoteUid = await signInAnon();
+    if (remoteUid) {
+      set({ uid: remoteUid });
+    }
   },
 
   setPartner: (name) => {
@@ -161,17 +165,62 @@ export const useBizde = create<BizdeState>()((set, get) => ({
 
   createCode: () => {
     const code = String(Math.floor(100000 + Math.random() * 900000));
-    set({ pairingCode: code, coupleId: `couple-${code}`, isPaired: true });
+    const coupleId = `couple-${code}`;
+    const { members, activeGoal, pastGoals, activities, customTemplates, customRewards, taskPointOverrides, personalGoals, pendingGoalProposal } = get();
+    const sharedData: SharedCoupleData = {
+      members,
+      activeGoal,
+      pastGoals,
+      activities,
+      customTemplates,
+      customRewards,
+      taskPointOverrides,
+      personalGoals,
+      pendingGoalProposal,
+      partnerJoined: false,
+    };
+    initCoupleDocument(coupleId, sharedData).catch(console.error);
+    set({ pairingCode: code, coupleId, isPaired: true, partnerJoined: false });
     return code;
   },
 
-  joinCode: (code) => {
-    const { pairingCode } = get();
+  joinCode: async (code) => {
     if (!/^\d{6}$/.test(code)) return false;
-    // Local demo: üretilen kodla eşleşir. Firestore'da couples-doc lookup olur.
-    if (pairingCode !== null && code !== pairingCode) return false;
-    set({ coupleId: `couple-${code}`, isPaired: true });
-    return true;
+    const coupleId = `couple-${code}`;
+    const remoteData = await fetchCoupleDocument(coupleId);
+    
+    if (remoteData) {
+      const members = (remoteData.members && remoteData.members.length > 0)
+        ? remoteData.members
+        : get().members;
+      const guestActor: string = members.length > 1 ? (members[1] ?? 'Partner') : (members[0] ?? 'Partner');
+      
+      set({
+        ...remoteData,
+        members,
+        coupleId,
+        pairingCode: code,
+        isPaired: true,
+        partnerJoined: true,
+        actor: guestActor,
+      });
+      await updateCoupleDocument(coupleId, { partnerJoined: true });
+      await get().signIn(guestActor);
+      return true;
+    }
+
+    // Local / fallback
+    const { pairingCode, members } = get();
+    if (pairingCode !== null && code === pairingCode) {
+      const guestActor: string = members.length > 1 ? (members[1] ?? 'Partner') : (members[0] ?? 'Partner');
+      set({ coupleId, isPaired: true, partnerJoined: true, actor: guestActor });
+      return true;
+    }
+    return false;
+  },
+
+  dismissPairingCode: () => {
+    set({ partnerJoined: true });
   },
 
   claimTask: (title, points, templateId) => {
@@ -440,7 +489,7 @@ export const useBizde = create<BizdeState>()((set, get) => ({
     const activity: Activity = {
       id: newId('a'),
       claimedBy: who,
-      title: 'Takdir',
+      title: 'Teşekkür',
       requestedPoints: APPRECIATION_POINTS,
       points: APPRECIATION_POINTS,
       status: 'approved',
@@ -471,13 +520,22 @@ export const useBizde = create<BizdeState>()((set, get) => ({
     return true;
   },
 
-  reset: () =>
+  reset: async () => {
+    const { coupleId } = get();
+    if (coupleId) {
+      await updateCoupleDocument(coupleId, { partnerJoined: false });
+    }
+    if (unsubscribeFirestore) {
+      unsubscribeFirestore();
+      unsubscribeFirestore = null;
+    }
     set({
       uid: null,
       members: [],
       actor: '',
       coupleId: null,
       pairingCode: null,
+      partnerJoined: false,
       isPaired: false,
       activeGoal: { ...DEFAULT_GOAL },
       pastGoals: [],
@@ -487,7 +545,8 @@ export const useBizde = create<BizdeState>()((set, get) => ({
       taskPointOverrides: {},
       personalGoals: {},
       pendingGoalProposal: null,
-    }),
+    });
+  },
 }));
 
 let isSyncing = false;
@@ -495,7 +554,8 @@ let unsubscribeFirestore: (() => void) | null = null;
 
 useBizde.subscribe((state, prevState) => {
   if (isSyncing) return;
-  if (state.coupleId && state.coupleId !== prevState.coupleId) {
+  const currentCoupleId = state.coupleId;
+  if (currentCoupleId && currentCoupleId !== prevState.coupleId) {
     if (unsubscribeFirestore) unsubscribeFirestore();
     const sharedData: SharedCoupleData = {
       members: state.members,
@@ -507,14 +567,27 @@ useBizde.subscribe((state, prevState) => {
       taskPointOverrides: state.taskPointOverrides,
       personalGoals: state.personalGoals,
       pendingGoalProposal: state.pendingGoalProposal,
+      partnerJoined: state.partnerJoined,
     };
-    initCoupleDocument(state.coupleId, sharedData).catch(console.error);
-    unsubscribeFirestore = subscribeToCouple(state.coupleId, (remoteData) => {
+    initCoupleDocument(currentCoupleId, sharedData).catch(console.error);
+    unsubscribeFirestore = subscribeToCouple(currentCoupleId, (remoteData) => {
       isSyncing = true;
-      useBizde.setState(remoteData);
+      let nextMembers = remoteData.members || [];
+      
+      // ponytail: if I joined an existing couple and my name isn't there, add it and sync back.
+      if (state.actor && !nextMembers.includes(state.actor)) {
+        nextMembers = [...nextMembers, state.actor].slice(0, 2);
+        updateCoupleDocument(currentCoupleId, { members: nextMembers }).catch(console.error);
+      }
+      
+      useBizde.setState({
+        ...remoteData,
+        members: nextMembers,
+        partnerJoined: remoteData.partnerJoined ?? false,
+      });
       setTimeout(() => { isSyncing = false; }, 0);
     });
-  } else if (state.coupleId && state.coupleId === prevState.coupleId) {
+  } else if (currentCoupleId && currentCoupleId === prevState.coupleId) {
     const sharedData: SharedCoupleData = {
       members: state.members,
       activeGoal: state.activeGoal,
@@ -525,8 +598,9 @@ useBizde.subscribe((state, prevState) => {
       taskPointOverrides: state.taskPointOverrides,
       personalGoals: state.personalGoals,
       pendingGoalProposal: state.pendingGoalProposal,
+      partnerJoined: state.partnerJoined,
     };
-    updateCoupleDocument(state.coupleId, sharedData).catch(console.error);
+    updateCoupleDocument(currentCoupleId, sharedData).catch(console.error);
   }
 });
 
