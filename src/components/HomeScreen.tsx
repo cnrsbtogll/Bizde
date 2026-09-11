@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
+  Alert,
   FlatList,
   Modal,
   Pressable,
@@ -97,6 +98,7 @@ export function HomeScreen({ lang }: { lang: Lang }) {
   const [showAllHistory, setShowAllHistory] = useState(false);
   const [showAllPending, setShowAllPending] = useState(false);
   const [proposalFeedback, setProposalFeedback] = useState('');
+  const [showIndividualGoals, setShowIndividualGoals] = useState(true);
 
   const applyGoalPackage = (pkg: GoalPackage) => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -482,23 +484,49 @@ export function HomeScreen({ lang }: { lang: Lang }) {
           onEditGoal={openEditGoalModal}
         />
 
-        {/* 2 Personal Goals: Kadının Hedefi & Erkeğin Hedefi */}
-        <View style={styles.personalGoalsSection}>
-          <PersonalGoalCard
-            member={femaleMember}
-            isFemale={true}
-            points={n2 ?? 0}
-            goal={femaleGoal}
-            onEdit={() => openEditPersonalGoalModal(femaleMember, true)}
-          />
-          <PersonalGoalCard
-            member={maleMember}
-            isFemale={false}
-            points={n1 ?? 0}
-            goal={maleGoal}
-            onEdit={() => openEditPersonalGoalModal(maleMember, false)}
+        {/* Individual Goals Toggle Explanation */}
+        <View style={{ alignItems: 'center', marginBottom: 12 }}>
+          <BouncyPressable
+            variant="ghost"
+            title={showIndividualGoals ? "👀 Bireysel Hedefleri Kapat" : "👀 Bireysel Hedefleri Aç"}
+            onPress={() => {
+              Alert.alert(
+                "Bireysel Hedefler",
+                "Uygulamamızın temel amacı aranızda bir rekabet ve çatışma doğurmak değil, birlikte zaman geçirmektir. Eğer bireysel ödüller (erkeğin / kadının hedefleri) adil hissettirmiyor veya bir rekabet yaratıyorsa, sadece Ortak Hedefe odaklanmak için bu kartları tamamen kapatabilirsiniz. (Kapatıldığında iki taraf için de gizlenir ve tamamen adil olur.)",
+                [
+                  { text: "Vazgeç", style: "cancel" },
+                  {
+                    text: showIndividualGoals ? "Kapat" : "Aç",
+                    style: showIndividualGoals ? "destructive" : "default",
+                    onPress: () => setShowIndividualGoals(!showIndividualGoals)
+                  }
+                ]
+              );
+            }}
+            style={{ paddingVertical: 4, minHeight: 28, paddingHorizontal: 12 }}
+            textStyle={{ fontSize: 12, color: '#64748b' }}
           />
         </View>
+
+        {/* 2 Personal Goals: Kadının Hedefi & Erkeğin Hedefi */}
+        {showIndividualGoals && (
+          <View style={styles.personalGoalsSection}>
+            <PersonalGoalCard
+              member={femaleMember}
+              isFemale={true}
+              points={n2 ?? 0}
+              goal={femaleGoal}
+              onEdit={() => openEditPersonalGoalModal(femaleMember, true)}
+            />
+            <PersonalGoalCard
+              member={maleMember}
+              isFemale={false}
+              points={n1 ?? 0}
+              goal={maleGoal}
+              onEdit={() => openEditPersonalGoalModal(maleMember, false)}
+            />
+          </View>
+        )}
 
         {/* Primary Action Buttons: Add Task & Appreciation */}
         {(() => {
