@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { APPRECIATION_POINTS, MAX_TASK_POINTS, MIN_TASK_POINTS } from '@/lib/progress';
 import { clampPoints, findTemplate, type TaskTemplate, type RewardTemplate } from '@/mock/catalog';
 import { signInAnon } from '@/firebase';
+import { subscribeToCouple, updateCoupleDocument, initCoupleDocument, type SharedCoupleData } from '@/services/firestore';
 
 export type ActivityStatus = 'requested' | 'pending' | 'approved' | 'rejected';
 
@@ -488,6 +489,46 @@ export const useBizde = create<BizdeState>()((set, get) => ({
       pendingGoalProposal: null,
     }),
 }));
+
+let isSyncing = false;
+let unsubscribeFirestore: (() => void) | null = null;
+
+useBizde.subscribe((state, prevState) => {
+  if (isSyncing) return;
+  if (state.coupleId && state.coupleId !== prevState.coupleId) {
+    if (unsubscribeFirestore) unsubscribeFirestore();
+    const sharedData: SharedCoupleData = {
+      members: state.members,
+      activeGoal: state.activeGoal,
+      pastGoals: state.pastGoals,
+      activities: state.activities,
+      customTemplates: state.customTemplates,
+      customRewards: state.customRewards,
+      taskPointOverrides: state.taskPointOverrides,
+      personalGoals: state.personalGoals,
+      pendingGoalProposal: state.pendingGoalProposal,
+    };
+    initCoupleDocument(state.coupleId, sharedData).catch(console.error);
+    unsubscribeFirestore = subscribeToCouple(state.coupleId, (remoteData) => {
+      isSyncing = true;
+      useBizde.setState(remoteData);
+      setTimeout(() => { isSyncing = false; }, 0);
+    });
+  } else if (state.coupleId && state.coupleId === prevState.coupleId) {
+    const sharedData: SharedCoupleData = {
+      members: state.members,
+      activeGoal: state.activeGoal,
+      pastGoals: state.pastGoals,
+      activities: state.activities,
+      customTemplates: state.customTemplates,
+      customRewards: state.customRewards,
+      taskPointOverrides: state.taskPointOverrides,
+      personalGoals: state.personalGoals,
+      pendingGoalProposal: state.pendingGoalProposal,
+    };
+    updateCoupleDocument(state.coupleId, sharedData).catch(console.error);
+  }
+});
 
 export function getPersonalGoal(
   personalGoals: Record<string, Goal>,
