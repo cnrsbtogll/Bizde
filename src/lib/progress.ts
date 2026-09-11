@@ -45,3 +45,38 @@ export function genPairingCode(rng: () => number = Math.random): string {
 export function validPairingCode(code: unknown): code is string {
   return typeof code === 'string' && /^\d{6}$/.test(code);
 }
+
+/** Consecutive active days with approved activities (ending today or yesterday). */
+export function calculateStreak(
+  activities: { createdAt: number; status: string }[],
+  referenceTime: number = Date.now(),
+): number {
+  const approved = activities.filter((a) => a.status === 'approved');
+  if (approved.length === 0) return 0;
+
+  const dateStr = (ms: number) => {
+    const d = new Date(ms);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+
+  const activeDays = new Set(approved.map((a) => dateStr(a.createdAt)));
+  const MS_PER_DAY = 86400000;
+
+  const todayStr = dateStr(referenceTime);
+  const yesterdayStr = dateStr(referenceTime - MS_PER_DAY);
+
+  let currentCursor = activeDays.has(todayStr)
+    ? referenceTime
+    : activeDays.has(yesterdayStr)
+    ? referenceTime - MS_PER_DAY
+    : null;
+
+  if (currentCursor === null) return 0;
+
+  let streak = 0;
+  while (activeDays.has(dateStr(currentCursor))) {
+    streak++;
+    currentCursor -= MS_PER_DAY;
+  }
+  return streak;
+}

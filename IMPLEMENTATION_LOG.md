@@ -36,6 +36,15 @@
   Firestore pairing (TTL'li kod) sadece `firebase.ts`'e eklenecek.
 - Gates: `tsc` 0 · `eslint` 0 · `jest --ci --runInBand` 23/23.
 
+## 2026-09-11 — Slice 3: oyunlaştırma + animasyonlar (Reanimated, Lottie, Haptics)
+- Paketler: `react-native-reanimated@4.5.1`, `lottie-react-native@7.3.8`, `expo-haptics@57.0.2`, `react-native-worklets@0.10.1`.
+- Duolingo/Brawl Stars tarzı 3D bouncy butonlar (`BouncyPressable`): spring physics (scale 0.95, translateY 3) + dokunsal haptic titreşim.
+- Dinamik XP seviye çubuğu (`GamifiedProgressBar`): Reanimated `withSpring` akıcı dolum, %25/%60/%100 kilit açılma rozetleri.
+- Çiftler arası seri/streak sayacı (`StreakBadge`): Lottie alev animasyonu (`flame.json`) + spring nabız efekti + `calculateStreak` pure math.
+- Hedef zafer kutlaması (`CelebrationOverlay`): 400 puan dolduğunda ekranı kaplayan konfeti yağmuru (`confetti.json`) + kupa (`trophy.json`) + zafer haptiği.
+- Görev kartları (`TaskCard`): Kategori rozetleri, XP etiketleri ve bouncy iddia butonları.
+- Gates: `tsc` 0 · `eslint` 0 · `jest --ci --runInBand` 27/27 · `expo-doctor` 21/21.
+
 ## Next
 - Kalıcılık (`zustand/persist` + AsyncStorage) — restartta veri siliniyor.
 - Firestore pairing lookup + activity sync when backend env exists (see

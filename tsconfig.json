@@ -15,14 +15,30 @@
     "jsx": "react-native",
     "moduleResolution": "bundler",
     "target": "ES2022",
-    "lib": ["ES2022", "DOM"],
+    "lib": [
+      "ES2022",
+      "DOM"
+    ],
     "baseUrl": ".",
-    "types": ["jest"],
+    "types": [
+      "jest"
+    ],
     "ignoreDeprecations": "6.0",
     "paths": {
-      "@/*": ["src/*"]
+      "@/*": [
+        "src/*"
+      ]
     }
   },
-  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"],
-  "exclude": ["node_modules", "dist", ".expo", "android", "ios"]
+  "include": [
+    "**/*.ts",
+    "**/*.tsx"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    ".expo",
+    "android",
+    "ios"
+  ]
 }

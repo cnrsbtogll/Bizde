@@ -1,4 +1,5 @@
 import {
+  calculateStreak,
   genPairingCode,
   progressFraction,
   reachedMilestones,
@@ -50,5 +51,36 @@ describe('pairing codes', () => {
     expect(validPairingCode('12345')).toBe(false);
     expect(validPairingCode('abcdef')).toBe(false);
     expect(validPairingCode(123456)).toBe(false);
+  });
+});
+
+describe('calculateStreak', () => {
+  const ONE_DAY = 86400000;
+  const now = new Date('2026-09-11T12:00:00Z').getTime();
+
+  it('returns 0 when no activities exist', () => {
+    expect(calculateStreak([], now)).toBe(0);
+  });
+
+  it('counts 1 day when activity is today', () => {
+    const activities = [{ createdAt: now, status: 'approved' }];
+    expect(calculateStreak(activities, now)).toBe(1);
+  });
+
+  it('counts consecutive days', () => {
+    const activities = [
+      { createdAt: now, status: 'approved' },
+      { createdAt: now - ONE_DAY, status: 'approved' },
+      { createdAt: now - ONE_DAY * 2, status: 'approved' },
+    ];
+    expect(calculateStreak(activities, now)).toBe(3);
+  });
+
+  it('ignores pending or rejected activities', () => {
+    const activities = [
+      { createdAt: now, status: 'pending' },
+      { createdAt: now - ONE_DAY, status: 'rejected' },
+    ];
+    expect(calculateStreak(activities, now)).toBe(0);
   });
 });
