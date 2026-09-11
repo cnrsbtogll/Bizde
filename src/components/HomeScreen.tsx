@@ -44,6 +44,8 @@ import { PersonalGoalCard } from './game/PersonalGoalCard';
 import { StreakBadge } from './game/StreakBadge';
 import { TaskCard } from './game/TaskCard';
 import { CelebrationOverlay } from './game/CelebrationOverlay';
+import { MilestoneRewardModal } from './game/MilestoneRewardModal';
+import { XPBurstOverlay, type BurstData } from './game/XPBurstOverlay';
 
 const BAR_COLORS = ['#0f766e', '#ea580c'];
 
@@ -104,6 +106,33 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
   const [showAllPending, setShowAllPending] = useState(false);
   const [proposalFeedback, setProposalFeedback] = useState('');
   const [showIndividualGoals, setShowIndividualGoals] = useState(true);
+  const [burstData, setBurstData] = useState<BurstData | null>(null);
+  const [milestoneReward, setMilestoneReward] = useState<{
+    pct: number;
+    title: string;
+  } | null>(null);
+  const [celebratedMilestones, setCelebratedMilestones] = useState<string[]>([]);
+
+  const sendLoveReaction = (receiverName: string) => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
+    setBurstData({
+      id: Date.now().toString(),
+      text: '💋 ÖPÜCÜK FIRLATILDI!',
+      subText: `${receiverName}'a kocaman bir öpücük gönderdin!`,
+      emoji: '💋',
+    });
+  };
+
+  const handleAppreciate = () => {
+    appreciate();
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    setBurstData({
+      id: Date.now().toString(),
+      text: '+50 XP SEVGİ PUANI!',
+      subText: `💖 ${partnerName}'a teşekkür ettin!`,
+      emoji: '💋',
+    });
+  };
 
   const applyGoalPackage = (pkg: GoalPackage) => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -117,6 +146,7 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
   const target = activeGoal.targetPoints;
   const [n1, n2] = totalsByMember(activities, members);
   const done = total >= target;
+  const currentPct = target > 0 ? (total / target) * 100 : 0;
   const pending = pendingActivities(activities);
   const incoming = incomingRequests(activities, actor);
   const outgoing = outgoingRequests(activities, actor);
@@ -142,15 +172,56 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
     }
   }, [done, total, activeGoal.title, activeGoal.targetPoints, celebratedGoalKey]);
 
+  // Trigger milestone reward modal when 25% or 60% is reached
+  useEffect(() => {
+    if (target <= 0 || total <= 0) return;
+    const goalPrefix = `${activeGoal.title}-${activeGoal.targetPoints}`;
+
+    if (currentPct >= 60 && activeGoal.m60Title) {
+      const m60Key = `${goalPrefix}-m60`;
+      if (!celebratedMilestones.includes(m60Key)) {
+        setCelebratedMilestones((prev) => [...prev, m60Key]);
+        setMilestoneReward({ pct: 60, title: activeGoal.m60Title });
+        return;
+      }
+    }
+
+    if (currentPct >= 25 && activeGoal.m25Title) {
+      const m25Key = `${goalPrefix}-m25`;
+      if (!celebratedMilestones.includes(m25Key)) {
+        setCelebratedMilestones((prev) => [...prev, m25Key]);
+        setMilestoneReward({ pct: 25, title: activeGoal.m25Title });
+      }
+    }
+  }, [currentPct, total, target, activeGoal.title, activeGoal.targetPoints, activeGoal.m25Title, activeGoal.m60Title, celebratedMilestones]);
+
   const handleTaskAction = (tpl: TaskTemplate) => {
     const title = templateTitle(tpl, lang);
     const effectivePoints = taskPointOverrides[tpl.id] ?? tpl.defaultPoints;
     if (taskMode === 'self') {
       const id = claimTask(title, effectivePoints, tpl.id);
-      if (id) setTaskModal(false);
+      if (id) {
+        setTaskModal(false);
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setBurstData({
+          id: Date.now().toString(),
+          text: `+${effectivePoints} XP TALEP EDİLDİ!`,
+          subText: '⚡ Eşinin onayına gönderildi',
+          emoji: '🚀',
+        });
+      }
     } else {
       const id = requestTask(title, effectivePoints, tpl.id);
-      if (id) setTaskModal(false);
+      if (id) {
+        setTaskModal(false);
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        setBurstData({
+          id: Date.now().toString(),
+          text: 'İSTEK İLETİLDİ!',
+          subText: `💌 ${partnerName}'a rica iletildi`,
+          emoji: '💌',
+        });
+      }
     }
   };
 
@@ -236,10 +307,20 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
     const raw = adjust[id];
     const tpl = templateId ? findTemplate(templateId, customTemplates) : undefined;
     const n = raw === undefined || raw === '' ? fallback : Number(raw);
-    const ok = tpl
-      ? approveActivity(id, clampPoints(Number.isFinite(n) ? n : fallback, tpl))
-      : approveActivity(id, n);
-    if (ok) setAdjust((s) => ({ ...s, [id]: '' }));
+    const finalPoints = tpl
+      ? clampPoints(Number.isFinite(n) ? n : fallback, tpl)
+      : (Number.isFinite(n) && n > 0 ? n : fallback);
+    const ok = approveActivity(id, finalPoints);
+    if (ok) {
+      setAdjust((s) => ({ ...s, [id]: '' }));
+      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      setBurstData({
+        id: Date.now().toString(),
+        text: `+${finalPoints} XP KAZANILDI!`,
+        subText: '🎉 Harikasınız! Görev Onaylandı',
+        emoji: '🎯',
+      });
+    }
   };
 
   const saveGoal = () => {
@@ -478,8 +559,14 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
           member2Name={femaleMember}
           member2Points={n2 ?? 0}
           color1={BAR_COLORS[0]}
-          color2={BAR_COLORS[1]}
-          onMilestonePress={(m) => setSelectedMilestone(m)}
+          onMilestonePress={(m) => {
+            setSelectedMilestone(m);
+            if (m.pct === 25 && activeGoal.m25Title) {
+              setMilestoneReward({ pct: 25, title: activeGoal.m25Title });
+            } else if (m.pct === 60 && activeGoal.m60Title) {
+              setMilestoneReward({ pct: 60, title: activeGoal.m60Title });
+            }
+          }}
           onAdjustTarget={(delta) => adjustTargetPoints(delta)}
           onEditGoal={openEditGoalModal}
         />
@@ -542,14 +629,14 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
                 textStyle={styles.actionText}
               />
               <BouncyPressable
-                variant={isAppreciated ? 'ghost' : 'amber'}
+                variant={isAppreciated ? 'ghost' : 'love'}
                 title={
                   isAppreciated
                     ? (lang === 'tr' ? '💖 Teşekkür Edildi' : '💖 Appreciated')
                     : `💖 ${t(lang, 'home.thanks')}`
                 }
                 disabled={isAppreciated}
-                onPress={() => appreciate()}
+                onPress={handleAppreciate}
                 wrapperStyle={styles.actionButtonWrapper}
                 style={styles.actionButton}
                 textStyle={styles.actionText}
@@ -582,7 +669,16 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
                   <BouncyPressable
                     variant="success"
                     title={`✨ ${t(lang, 'home.markDone')}`}
-                    onPress={() => completeRequestedTask(item.id)}
+                    onPress={() => {
+                      completeRequestedTask(item.id);
+                      void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                      setBurstData({
+                        id: Date.now().toString(),
+                        text: `+${item.requestedPoints} XP TAMAMLANDI!`,
+                        subText: '✨ Eşinin onayına sunuldu!',
+                        emoji: '💫',
+                      });
+                    }}
                     style={styles.actionMiniBtn}
                     textStyle={styles.miniBtnText}
                   />
@@ -744,6 +840,17 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
                         {isApproved ? `+${item.points} XP` : t(lang, 'home.rejected')}
                       </Text>
                     </View>
+                    {isApproved && (
+                      <Pressable
+                        onPress={() => sendLoveReaction(item.claimedBy)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        style={styles.loveReactBtn}
+                        accessibilityRole="button"
+                        accessibilityLabel="Öpücük Gönder"
+                      >
+                        <Text style={styles.loveReactText}>💋</Text>
+                      </Pressable>
+                    )}
                   </View>
                 </View>
               );
@@ -1363,7 +1470,6 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
         visible={showCelebration}
         title={activeGoal.title}
         subtitle={`${total} / ${target} XP Ulaşıldı!`}
-        newGoalButtonText={t(lang, 'home.newGoal')}
         onNewGoal={() => {
           setShowCelebration(false);
           // Wait for celebration modal to dismiss on iOS before presenting goal modal
@@ -1373,6 +1479,27 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
         }}
         onClose={() => setShowCelebration(false)}
       />
+
+      {/* Milestone Reward Popup Modal */}
+      {milestoneReward && (
+        <MilestoneRewardModal
+          visible={Boolean(milestoneReward)}
+          milestonePct={milestoneReward.pct}
+          rewardTitle={milestoneReward.title}
+          partnerName={partnerName}
+          onClaimBreak={() => {
+            const reward = milestoneReward;
+            setMilestoneReward(null);
+            if (reward) {
+              sendLoveReaction(partnerName);
+            }
+          }}
+          onClose={() => setMilestoneReward(null)}
+        />
+      )}
+
+      {/* Floating XP Burst and Love Reactions Overlay */}
+      <XPBurstOverlay burst={burstData} onComplete={() => setBurstData(null)} />
     </View>
   );
 }
@@ -1827,6 +1954,20 @@ const styles = StyleSheet.create({
   historyBadgeText: {
     fontSize: 11,
     fontWeight: '800',
+  },
+  loveReactBtn: {
+    backgroundColor: '#fff1f2',
+    borderColor: '#fecdd3',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginLeft: 6,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loveReactText: {
+    fontSize: 13,
   },
   modalBackdrop: {
     flex: 1,

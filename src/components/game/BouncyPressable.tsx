@@ -14,7 +14,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'success' | 'danger' | 'ghost' | 'amber';
+export type ButtonVariant = 'primary' | 'secondary' | 'success' | 'danger' | 'ghost' | 'amber' | 'love';
 
 interface BouncyPressableProps extends PropsWithChildren {
   onPress: () => void;
@@ -28,9 +28,9 @@ interface BouncyPressableProps extends PropsWithChildren {
 }
 
 const SPRING_CONFIG = {
-  damping: 14,
-  stiffness: 280,
-  mass: 0.8,
+  damping: 12,
+  stiffness: 300,
+  mass: 0.7,
 };
 
 export function BouncyPressable({
@@ -40,7 +40,7 @@ export function BouncyPressable({
   style,
   wrapperStyle,
   textStyle,
-  hapticStyle = Haptics.ImpactFeedbackStyle.Light,
+  hapticStyle = Haptics.ImpactFeedbackStyle.Medium,
   disabled = false,
   children,
 }: BouncyPressableProps) {
@@ -58,8 +58,8 @@ export function BouncyPressable({
 
   const handlePressIn = () => {
     if (disabled) return;
-    scale.value = withSpring(0.95, SPRING_CONFIG);
-    translateY.value = withSpring(3, SPRING_CONFIG);
+    scale.value = withSpring(0.94, SPRING_CONFIG);
+    translateY.value = withSpring(4, SPRING_CONFIG);
     void Haptics.impactAsync(hapticStyle);
   };
 
@@ -69,7 +69,7 @@ export function BouncyPressable({
     translateY.value = withSpring(0, SPRING_CONFIG);
   };
 
-  const colors = VARIANT_COLORS[variant];
+  const colors = VARIANT_COLORS[variant] ?? VARIANT_COLORS.primary;
 
   return (
     <Pressable
@@ -116,14 +116,19 @@ const VARIANT_COLORS: Record<
     shadow: '#1d4ed8',
     text: '#ffffff',
   },
+  love: {
+    bg: '#ff3366',
+    shadow: '#cc1f4a',
+    text: '#ffffff',
+  },
   secondary: {
     bg: '#0f766e',
     shadow: '#115e59',
     text: '#ffffff',
   },
   success: {
-    bg: '#16a34a',
-    shadow: '#15803d',
+    bg: '#10b981',
+    shadow: '#059669',
     text: '#ffffff',
   },
   amber: {
@@ -132,14 +137,14 @@ const VARIANT_COLORS: Record<
     text: '#ffffff',
   },
   danger: {
-    bg: '#dc2626',
+    bg: '#ef4444',
     shadow: '#b91c1c',
     text: '#ffffff',
   },
   ghost: {
-    bg: '#f3f4f6',
-    shadow: '#e5e7eb',
-    text: '#374151',
+    bg: '#fff1f2',
+    shadow: '#fecdd3',
+    text: '#e11d48',
   },
 };
 
