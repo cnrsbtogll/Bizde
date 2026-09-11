@@ -22,6 +22,7 @@ export interface RewardTemplate {
   tr: string;
   en: string;
   thresholdPct: number;
+  custom?: boolean;
 }
 
 export const CATEGORIES: TaskCategory[] = ['ev', 'ilgi', 'vakit', 'plan'];
@@ -68,4 +69,11 @@ export function findTemplate(
   custom: TaskTemplate[] = [],
 ): TaskTemplate | undefined {
   return custom.find((c) => c.id === id) ?? TASK_TEMPLATES.find((c) => c.id === id);
+}
+
+export function findReward(
+  id: string,
+  custom: RewardTemplate[] = [],
+): RewardTemplate | undefined {
+  return custom.find((c) => c.id === id) ?? REWARD_TEMPLATES.find((c) => c.id === id);
 }

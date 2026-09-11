@@ -1,13 +1,14 @@
 import { create } from 'zustand';
 import { APPRECIATION_POINTS, MAX_TASK_POINTS, MIN_TASK_POINTS } from '@/lib/progress';
-import { clampPoints, findTemplate, type TaskTemplate } from '@/mock/catalog';
+import { clampPoints, findTemplate, type TaskTemplate, type RewardTemplate } from '@/mock/catalog';
 import { signInAnon } from '@/firebase';
 
-export type ActivityStatus = 'pending' | 'approved' | 'rejected';
+export type ActivityStatus = 'requested' | 'pending' | 'approved' | 'rejected';
 
 export interface Activity {
   id: string;
   claimedBy: string;
+  requestedBy?: string;
   title: string;
   templateId?: string;
   requestedPoints: number;
@@ -42,6 +43,7 @@ interface BizdeState {
   pastGoals: FinishedGoal[];
   activities: Activity[];
   customTemplates: TaskTemplate[];
+  customRewards: RewardTemplate[];
   signIn: (displayName: string) => void;
   setPartner: (name: string) => void;
   setActor: (name: string) => void;
@@ -49,7 +51,16 @@ interface BizdeState {
   joinCode: (code: string) => boolean;
   /** Görev iddiası: puan aralığa sıkışır, status pending. */
   claimTask: (title: string, points: number, templateId?: string) => string | null;
+  /** Partnerden görev isteme: status requested, puanı yapacak partnere atanır. */
+  requestTask: (title: string, points: number, templateId?: string) => string | null;
+  /** Partnerin rica edilen görevi 'Yaptım' demesi: status pending olur. */
+  completeRequestedTask: (id: string) => boolean;
   addCustomTemplate: (title: string, points: number, category: TaskTemplate['category']) => string | null;
+  addCustomReward: (title: string, thresholdPct?: number) => string | null;
+  taskPointOverrides: Record<string, number>;
+  updateActiveGoal: (title: string, targetPoints: number, rewardId: string) => boolean;
+  adjustTargetPoints: (delta: number) => number;
+  updateTaskPoints: (templateId: string, points: number) => boolean;
   approveActivity: (id: string, finalPoints?: number) => boolean;
   rejectActivity: (id: string) => boolean;
   appreciate: () => void;
@@ -84,6 +95,8 @@ export const useBizde = create<BizdeState>()((set, get) => ({
   pastGoals: [],
   activities: [],
   customTemplates: [],
+  customRewards: [],
+  taskPointOverrides: {},
 
   signIn: (displayName) => {
     const name = displayName.trim();
@@ -132,7 +145,8 @@ export const useBizde = create<BizdeState>()((set, get) => ({
     if (templateId) {
       const t = findTemplate(templateId, customTemplates);
       if (!t) return null;
-      final = clampPoints(points, t);
+      const override = get().taskPointOverrides[templateId];
+      final = override !== undefined ? override : clampPoints(points, t);
     } else if (!Number.isInteger(points) || points < MIN_TASK_POINTS || points > MAX_TASK_POINTS) {
       return null;
     }
@@ -149,6 +163,48 @@ export const useBizde = create<BizdeState>()((set, get) => ({
     };
     set({ activities: [activity, ...get().activities] });
     return activity.id;
+  },
+
+  requestTask: (title, points, templateId) => {
+    const { actor, members, customTemplates } = get();
+    const clean = title.trim();
+    if (!clean || !actor) return null;
+    const target = otherMember(members, actor);
+    let final = points;
+    if (templateId) {
+      const t = findTemplate(templateId, customTemplates);
+      if (!t) return null;
+      const override = get().taskPointOverrides[templateId];
+      final = override !== undefined ? override : clampPoints(points, t);
+    } else if (!Number.isInteger(points) || points < MIN_TASK_POINTS || points > MAX_TASK_POINTS) {
+      return null;
+    }
+    const activity: Activity = {
+      id: newId('a'),
+      claimedBy: target,
+      requestedBy: actor,
+      title: clean,
+      templateId,
+      requestedPoints: final,
+      points: 0,
+      status: 'requested',
+      type: 'task',
+      createdAt: Date.now(),
+    };
+    set({ activities: [activity, ...get().activities] });
+    return activity.id;
+  },
+
+  completeRequestedTask: (id) => {
+    const { activities } = get();
+    const a = activities.find((x) => x.id === id);
+    if (!a || a.status !== 'requested') return false;
+    set({
+      activities: activities.map((x) =>
+        x.id === id ? { ...x, status: 'pending' as const } : x,
+      ),
+    });
+    return true;
   },
 
   addCustomTemplate: (title, points, category) => {
@@ -169,22 +225,83 @@ export const useBizde = create<BizdeState>()((set, get) => ({
     return t.id;
   },
 
+  addCustomReward: (title, thresholdPct = 100) => {
+    const clean = title.trim();
+    if (!clean) return null;
+    const r: RewardTemplate = {
+      id: newId('custom-reward'),
+      tr: clean,
+      en: clean,
+      thresholdPct: thresholdPct >= 1 && thresholdPct <= 100 ? thresholdPct : 100,
+      custom: true,
+    };
+    set({ customRewards: [...get().customRewards, r] });
+    return r.id;
+  },
+
+  updateActiveGoal: (title, targetPoints, rewardId) => {
+    const clean = title.trim();
+    if (!clean || !Number.isInteger(targetPoints) || targetPoints < 100 || targetPoints > 2000) return false;
+    set({
+      activeGoal: {
+        title: clean,
+        targetPoints,
+        rewardId,
+      },
+    });
+    return true;
+  },
+
+  adjustTargetPoints: (delta) => {
+    const { activeGoal } = get();
+    const next = Math.min(2000, Math.max(100, activeGoal.targetPoints + delta));
+    set({ activeGoal: { ...activeGoal, targetPoints: next } });
+    return next;
+  },
+
+  updateTaskPoints: (templateId, points) => {
+    if (!Number.isInteger(points) || points < MIN_TASK_POINTS || points > MAX_TASK_POINTS) {
+      return false;
+    }
+    set({
+      taskPointOverrides: {
+        ...get().taskPointOverrides,
+        [templateId]: points,
+      },
+    });
+    return true;
+  },
+
   approveActivity: (id, finalPoints) => {
-    const { activities, members, customTemplates } = get();
+    const { activities, members, actor, customTemplates } = get();
     const a = activities.find((x) => x.id === id);
     if (!a || a.status !== 'pending') return false;
     let pts = finalPoints ?? a.requestedPoints;
     if (a.templateId) {
       const t = findTemplate(a.templateId, customTemplates);
-      if (t) pts = clampPoints(pts, t);
+      if (t) {
+        const override = get().taskPointOverrides[a.templateId];
+        if (override !== undefined) {
+          pts = Math.min(MAX_TASK_POINTS, Math.max(MIN_TASK_POINTS, pts));
+        } else {
+          pts = clampPoints(pts, t);
+        }
+      }
     } else if (!Number.isInteger(pts) || pts < MIN_TASK_POINTS || pts > MAX_TASK_POINTS) {
       return false;
     }
     const now = Date.now();
+    const approver = actor && actor !== a.claimedBy ? actor : otherMember(members, a.claimedBy);
     set({
       activities: activities.map((x) =>
         x.id === id
-          ? { ...x, status: 'approved' as const, points: pts, approvedBy: otherMember(members, x.claimedBy), decidedAt: now }
+          ? {
+              ...x,
+              status: 'approved' as const,
+              points: pts,
+              approvedBy: approver,
+              decidedAt: now,
+            }
           : x,
       ),
     });
@@ -247,6 +364,8 @@ export const useBizde = create<BizdeState>()((set, get) => ({
       pastGoals: [],
       activities: [],
       customTemplates: [],
+      customRewards: [],
+      taskPointOverrides: {},
     }),
 }));
 
@@ -267,9 +386,19 @@ export function pendingActivities(activities: Activity[]): Activity[] {
   return activities.filter((a) => a.status === 'pending');
 }
 
-/** Geçmiş: onaylı + reddedilen (ret sessiz, gri). Son 20. */
+/** Aktif kullanıcıya partnerinden gelen görev istekleri. */
+export function incomingRequests(activities: Activity[], actor: string): Activity[] {
+  return activities.filter((a) => a.status === 'requested' && a.claimedBy === actor);
+}
+
+/** Aktif kullanıcının partnerine gönderdiği görev istekleri. */
+export function outgoingRequests(activities: Activity[], actor: string): Activity[] {
+  return activities.filter((a) => a.status === 'requested' && a.requestedBy === actor);
+}
+
+/** Geçmiş: sadece onaylı ve reddedilenler (ret sessiz, gri). Son 20. */
 export function historyActivities(activities: Activity[]): Activity[] {
-  return activities.filter((a) => a.status !== 'pending').slice(0, 20);
+  return activities.filter((a) => a.status === 'approved' || a.status === 'rejected').slice(0, 20);
 }
 
 /** Eski adla uyum: son 5 onaylı/geçmiş. */

@@ -1,12 +1,15 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { type TaskTemplate, type TaskCategory } from '@/mock/catalog';
-import { BouncyPressable } from './BouncyPressable';
+import { BouncyPressable, type ButtonVariant } from './BouncyPressable';
 
 interface TaskCardProps {
   template: TaskTemplate;
   title: string;
   onClaim: (tpl: TaskTemplate) => void;
+  onEditPoints?: (tpl: TaskTemplate) => void;
   claimButtonText?: string;
+  variant?: ButtonVariant;
 }
 
 const CATEGORY_META: Record<
@@ -23,7 +26,9 @@ export function TaskCard({
   template,
   title,
   onClaim,
+  onEditPoints,
   claimButtonText = 'Al',
+  variant = 'primary',
 }: TaskCardProps) {
   const meta = CATEGORY_META[template.category] ?? CATEGORY_META.ev;
 
@@ -37,14 +42,30 @@ export function TaskCard({
           <Text style={styles.title} numberOfLines={2}>
             {title}
           </Text>
-          <View style={styles.xpBadge}>
-            <Text style={styles.xpText}>+{template.defaultPoints} XP</Text>
+          <View style={styles.xpRow}>
+            {onEditPoints ? (
+              <Pressable
+                onPress={() => {
+                  void Haptics.selectionAsync();
+                  onEditPoints(template);
+                }}
+                style={styles.xpBadgePressable}
+                accessibilityRole="button"
+                accessibilityLabel="Puanı Düzenle"
+              >
+                <Text style={styles.xpText}>+{template.defaultPoints} XP ✏️</Text>
+              </Pressable>
+            ) : (
+              <View style={styles.xpBadge}>
+                <Text style={styles.xpText}>+{template.defaultPoints} XP</Text>
+              </View>
+            )}
           </View>
         </View>
       </View>
 
       <BouncyPressable
-        variant="primary"
+        variant={variant}
         title={claimButtonText}
         onPress={() => onClaim(template)}
         style={styles.claimButton}
@@ -96,12 +117,25 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#1e293b',
   },
+  xpRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   xpBadge: {
     alignSelf: 'flex-start',
     backgroundColor: '#f1f5f9',
     borderRadius: 6,
     paddingHorizontal: 6,
     paddingVertical: 2,
+  },
+  xpBadgePressable: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#f1f5f9',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
   xpText: {
     fontSize: 12,

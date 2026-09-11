@@ -2,25 +2,30 @@ import { useState, useEffect } from 'react';
 import {
   FlatList,
   Modal,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import {
   historyActivities,
+  incomingRequests,
+  outgoingRequests,
   pendingActivities,
   totalPoints,
   totalsByMember,
   useBizde,
 } from '@/store';
-import { calculateStreak } from '@/lib/progress';
+import { calculateStreak, type Milestone } from '@/lib/progress';
 import {
   CATEGORIES,
   REWARD_TEMPLATES,
   TASK_TEMPLATES,
   clampPoints,
+  findReward,
   findTemplate,
   rewardTitle,
   templateTitle,
@@ -43,25 +48,40 @@ export function HomeScreen({ lang }: { lang: Lang }) {
     setActor,
     activeGoal,
     customTemplates,
+    customRewards,
+    taskPointOverrides,
     activities,
     claimTask,
+    requestTask,
+    completeRequestedTask,
     addCustomTemplate,
+    addCustomReward,
     approveActivity,
     rejectActivity,
     appreciate,
     startNewGoal,
+    updateActiveGoal,
+    adjustTargetPoints,
+    updateTaskPoints,
   } = useBizde();
 
   const [taskModal, setTaskModal] = useState(false);
+  const [taskMode, setTaskMode] = useState<'self' | 'partner'>('self');
   const [selectedCategory, setSelectedCategory] = useState<TaskCategory>('ev');
   const [customTitle, setCustomTitle] = useState('');
   const [customPoints, setCustomPoints] = useState('');
   const [customCat, setCustomCat] = useState<TaskCategory>('ev');
   const [adjust, setAdjust] = useState<Record<string, string>>({});
   const [goalModal, setGoalModal] = useState(false);
+  const [goalModalMode, setGoalModalMode] = useState<'edit' | 'new'>('new');
   const [goalTitle, setGoalTitle] = useState('');
   const [goalTarget, setGoalTarget] = useState('');
   const [rewardId, setRewardId] = useState(REWARD_TEMPLATES[0]?.id ?? '');
+  const [customRewardTitle, setCustomRewardTitle] = useState('');
+  const [customRewardPct, setCustomRewardPct] = useState(100);
+  const [selectedMilestone, setSelectedMilestone] = useState<Milestone | null>(null);
+  const [editingTask, setEditingTask] = useState<TaskTemplate | null>(null);
+  const [editingTaskPoints, setEditingTaskPoints] = useState('');
   const [error, setError] = useState('');
   const [celebratedGoal, setCelebratedGoal] = useState(false);
 
@@ -70,9 +90,17 @@ export function HomeScreen({ lang }: { lang: Lang }) {
   const [n1, n2] = totalsByMember(activities, members);
   const done = total >= target;
   const pending = pendingActivities(activities);
+  const incoming = incomingRequests(activities, actor);
+  const outgoing = outgoingRequests(activities, actor);
   const history = historyActivities(activities);
   const allTemplates: TaskTemplate[] = [...TASK_TEMPLATES, ...customTemplates];
+  const allRewards = [...REWARD_TEMPLATES, ...customRewards];
+  const activeReward = findReward(activeGoal.rewardId, customRewards);
   const streak = calculateStreak(activities);
+
+  const partnerName =
+    members.find((m) => m !== actor) ??
+    (members[0] === actor ? members[1] ?? 'Partner' : members[0] ?? 'Partner');
 
   // Trigger celebration modal once when target is reached
   useEffect(() => {
@@ -81,9 +109,54 @@ export function HomeScreen({ lang }: { lang: Lang }) {
     }
   }, [done, celebratedGoal, total]);
 
-  const claim = (tpl: TaskTemplate) => {
-    const id = claimTask(templateTitle(tpl, lang), tpl.defaultPoints, tpl.id);
-    if (id) setTaskModal(false);
+  const handleTaskAction = (tpl: TaskTemplate) => {
+    const title = templateTitle(tpl, lang);
+    const effectivePoints = taskPointOverrides[tpl.id] ?? tpl.defaultPoints;
+    if (taskMode === 'self') {
+      const id = claimTask(title, effectivePoints, tpl.id);
+      if (id) setTaskModal(false);
+    } else {
+      const id = requestTask(title, effectivePoints, tpl.id);
+      if (id) setTaskModal(false);
+    }
+  };
+
+  const openEditGoalModal = () => {
+    setGoalModalMode('edit');
+    setGoalTitle(activeGoal.title);
+    setGoalTarget(String(activeGoal.targetPoints));
+    setRewardId(activeGoal.rewardId ?? REWARD_TEMPLATES[0]?.id ?? '');
+    setError('');
+    setGoalModal(true);
+  };
+
+  const openNewGoalModal = () => {
+    setGoalModalMode('new');
+    setGoalTitle('');
+    setGoalTarget('');
+    setRewardId(REWARD_TEMPLATES[0]?.id ?? '');
+    setError('');
+    setGoalModal(true);
+  };
+
+  const openEditTaskModal = (tpl: TaskTemplate) => {
+    setEditingTask(tpl);
+    const currentPts = taskPointOverrides[tpl.id] ?? tpl.defaultPoints;
+    setEditingTaskPoints(String(currentPts));
+    setError('');
+  };
+
+  const saveTaskPoints = () => {
+    if (!editingTask) return;
+    const pts = Number(editingTaskPoints);
+    if (!Number.isInteger(pts) || pts < 10 || pts > 50) {
+      setError(t(lang, 'home.minMaxPointsNotice'));
+      return;
+    }
+    updateTaskPoints(editingTask.id, pts);
+    setEditingTask(null);
+    setEditingTaskPoints('');
+    setError('');
   };
 
   const saveCustom = () => {
@@ -97,7 +170,17 @@ export function HomeScreen({ lang }: { lang: Lang }) {
     setError('');
     setCustomTitle('');
     setCustomPoints('');
-    if (tpl) claim(tpl);
+    if (tpl) handleTaskAction(tpl);
+  };
+
+  const saveCustomReward = () => {
+    const clean = customRewardTitle.trim();
+    if (!clean) return;
+    const id = addCustomReward(clean, customRewardPct);
+    if (id) {
+      setRewardId(id);
+      setCustomRewardTitle('');
+    }
   };
 
   const approve = (id: string, fallback: number, templateId?: string) => {
@@ -111,15 +194,29 @@ export function HomeScreen({ lang }: { lang: Lang }) {
   };
 
   const saveGoal = () => {
-    const ok = startNewGoal(goalTitle, Number(goalTarget), rewardId);
-    if (!ok) {
+    const pts = Number(goalTarget);
+    if (!goalTitle.trim() || !Number.isInteger(pts) || pts < 100 || pts > 2000) {
       setError(t(lang, 'home.badPoints'));
       return;
+    }
+    if (goalModalMode === 'edit') {
+      const ok = updateActiveGoal(goalTitle, pts, rewardId);
+      if (!ok) {
+        setError(t(lang, 'home.badPoints'));
+        return;
+      }
+    } else {
+      const ok = startNewGoal(goalTitle, pts, rewardId);
+      if (!ok) {
+        setError(t(lang, 'home.badPoints'));
+        return;
+      }
+      setCelebratedGoal(false);
     }
     setError('');
     setGoalTitle('');
     setGoalTarget('');
-    setCelebratedGoal(false);
+    setCustomRewardTitle('');
     setGoalModal(false);
   };
 
@@ -154,7 +251,29 @@ export function HomeScreen({ lang }: { lang: Lang }) {
 
       {/* Goal Title & Reward */}
       <View style={styles.goalHeader}>
-        <Text style={styles.goalSubtitle}>{t(lang, 'home.goal')}</Text>
+        <View style={styles.goalRow}>
+          <Text style={styles.goalSubtitle}>{t(lang, 'home.goal')}</Text>
+          <View style={styles.goalRowActions}>
+            <Pressable
+              onPress={() => {
+                void Haptics.selectionAsync();
+                openEditGoalModal();
+              }}
+              style={styles.editGoalBtn}
+              accessibilityRole="button"
+              accessibilityLabel={t(lang, 'home.editGoal')}
+            >
+              <Text style={styles.editGoalBtnText}>✏️ {t(lang, 'home.editGoal')}</Text>
+            </Pressable>
+            {activeReward && (
+              <View style={styles.activeRewardBadge}>
+                <Text style={styles.activeRewardText}>
+                  🎁 {rewardTitle(activeReward, lang)} (%{activeReward.thresholdPct})
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
         <Text style={styles.goalMainTitle}>{activeGoal.title}</Text>
       </View>
 
@@ -168,6 +287,9 @@ export function HomeScreen({ lang }: { lang: Lang }) {
         member2Points={n2 ?? 0}
         color1={BAR_COLORS[0]}
         color2={BAR_COLORS[1]}
+        onMilestonePress={(m) => setSelectedMilestone(m)}
+        onAdjustTarget={(delta) => adjustTargetPoints(delta)}
+        onEditGoal={openEditGoalModal}
       />
 
       {/* Primary Action Buttons: Add Task & Appreciation */}
@@ -188,7 +310,69 @@ export function HomeScreen({ lang }: { lang: Lang }) {
         />
       </View>
 
-      {/* Pending Claims Section */}
+      {/* Section 1: Incoming Requests (Partner asked ME to do this) */}
+      {incoming.length > 0 && (
+        <View style={styles.incomingSection}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.incomingSectionTitle}>💌 {t(lang, 'home.incomingRequests')}</Text>
+            <View style={styles.incomingBadge}>
+              <Text style={styles.incomingBadgeText}>{incoming.length}</Text>
+            </View>
+          </View>
+          {incoming.map((item) => (
+            <View key={item.id} style={styles.requestCard}>
+              <View style={styles.requestLeft}>
+                <Text style={styles.requestNote}>
+                  {item.requestedBy} {t(lang, 'home.requestedBy')}:
+                </Text>
+                <Text style={styles.requestTitle}>{item.title}</Text>
+                <Text style={styles.requestPoints}>+{item.requestedPoints} XP</Text>
+              </View>
+              <View style={styles.requestActions}>
+                <BouncyPressable
+                  variant="success"
+                  title={`✨ ${t(lang, 'home.markDone')}`}
+                  onPress={() => completeRequestedTask(item.id)}
+                  style={styles.actionMiniBtn}
+                  textStyle={styles.miniBtnText}
+                />
+                <BouncyPressable
+                  variant="ghost"
+                  title={`✕ ${t(lang, 'home.reject')}`}
+                  onPress={() => rejectActivity(item.id)}
+                  style={styles.actionMiniBtn}
+                  textStyle={styles.miniBtnText}
+                />
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* Section 2: Outgoing Requests (I asked partner to do this, partner hasn't done yet) */}
+      {outgoing.length > 0 && (
+        <View style={styles.outgoingSection}>
+          <Text style={styles.outgoingSubtitle}>
+            ⏳ {partnerName}{"'a gönderdiğin istekler:"}
+          </Text>
+          {outgoing.map((item) => (
+            <View key={item.id} style={styles.outgoingCard}>
+              <Text style={styles.outgoingText}>
+                {item.title} (+{item.requestedPoints} XP)
+              </Text>
+              <BouncyPressable
+                variant="ghost"
+                title={t(lang, 'home.cancel')}
+                onPress={() => rejectActivity(item.id)}
+                style={styles.cancelMiniBtn}
+                textStyle={styles.cancelMiniText}
+              />
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* Section 3: Pending Approval (Activity is done; waiting for partner to approve) */}
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>{t(lang, 'home.pending')}</Text>
         {pending.length > 0 && (
@@ -207,39 +391,56 @@ export function HomeScreen({ lang }: { lang: Lang }) {
           data={pending}
           keyExtractor={(a) => a.id}
           style={styles.pendingList}
-          renderItem={({ item }) => (
-            <View style={styles.pendingCard}>
-              <View style={styles.pendingLeft}>
-                <Text style={styles.pendingClaimer}>👤 {item.claimedBy}</Text>
-                <Text style={styles.pendingTaskTitle}>{item.title}</Text>
-                <Text style={styles.pendingPoints}>+{item.requestedPoints} XP</Text>
-              </View>
+          renderItem={({ item }) => {
+            const isMyClaim = item.claimedBy === actor;
+            return (
+              <View style={styles.pendingCard}>
+                <View style={styles.pendingLeft}>
+                  <Text style={styles.pendingClaimer}>
+                    {isMyClaim ? `👤 Sen (${item.claimedBy})` : `👤 ${item.claimedBy}`}
+                  </Text>
+                  <Text style={styles.pendingTaskTitle}>
+                    {item.title} {isMyClaim ? `(yaptın)` : `(yaptı)`}
+                  </Text>
+                  <Text style={styles.pendingPoints}>+{item.requestedPoints} XP</Text>
+                </View>
 
-              <View style={styles.pendingActions}>
-                <TextInput
-                  style={styles.pointsInput}
-                  keyboardType="number-pad"
-                  placeholder={String(item.requestedPoints)}
-                  value={adjust[item.id] ?? ''}
-                  onChangeText={(v) => setAdjust((s) => ({ ...s, [item.id]: v }))}
-                />
-                <BouncyPressable
-                  variant="success"
-                  title={`✓ ${t(lang, 'home.approve')}`}
-                  onPress={() => approve(item.id, item.requestedPoints, item.templateId)}
-                  style={styles.miniBtn}
-                  textStyle={styles.miniBtnText}
-                />
-                <BouncyPressable
-                  variant="danger"
-                  title={`✕ ${t(lang, 'home.reject')}`}
-                  onPress={() => rejectActivity(item.id)}
-                  style={styles.miniBtn}
-                  textStyle={styles.miniBtnText}
-                />
+                {isMyClaim ? (
+                  // Self-approval guarded: Actor sees waiting status, cannot approve own claim!
+                  <View style={styles.waitingBadge}>
+                    <Text style={styles.waitingText}>
+                      🕒 {partnerName}{"'ın"} {t(lang, 'home.waitingApproval')}
+                    </Text>
+                  </View>
+                ) : (
+                  // Partner approval: Can approve or reject partner's completed work
+                  <View style={styles.pendingActions}>
+                    <TextInput
+                      style={styles.pointsInput}
+                      keyboardType="number-pad"
+                      placeholder={String(item.requestedPoints)}
+                      value={adjust[item.id] ?? ''}
+                      onChangeText={(v) => setAdjust((s) => ({ ...s, [item.id]: v }))}
+                    />
+                    <BouncyPressable
+                      variant="success"
+                      title={`✓ ${t(lang, 'home.approve')}`}
+                      onPress={() => approve(item.id, item.requestedPoints, item.templateId)}
+                      style={styles.miniBtn}
+                      textStyle={styles.miniBtnText}
+                    />
+                    <BouncyPressable
+                      variant="danger"
+                      title={`✕ ${t(lang, 'home.reject')}`}
+                      onPress={() => rejectActivity(item.id)}
+                      style={styles.miniBtn}
+                      textStyle={styles.miniBtnText}
+                    />
+                  </View>
+                )}
               </View>
-            </View>
-          )}
+            );
+          }}
         />
       )}
 
@@ -285,7 +486,7 @@ export function HomeScreen({ lang }: { lang: Lang }) {
         />
       )}
 
-      {/* Task Picker Modal */}
+      {/* Task Picker Modal (with Hybrid Switch: Ben Yaptım vs Partnerime İste) */}
       <Modal visible={taskModal} transparent animationType="slide">
         <View style={styles.modalBackdrop}>
           <View style={styles.sheetContainer}>
@@ -299,6 +500,24 @@ export function HomeScreen({ lang }: { lang: Lang }) {
                   setError('');
                 }}
                 style={styles.closeButton}
+              />
+            </View>
+
+            {/* Hybrid Mode Switcher */}
+            <View style={styles.modeSwitcher}>
+              <BouncyPressable
+                variant={taskMode === 'self' ? 'primary' : 'ghost'}
+                title={`🙋 ${t(lang, 'home.tabSelf')}`}
+                onPress={() => setTaskMode('self')}
+                style={styles.modeBtn}
+                textStyle={styles.modeBtnText}
+              />
+              <BouncyPressable
+                variant={taskMode === 'partner' ? 'amber' : 'ghost'}
+                title={`💌 ${t(lang, 'home.tabPartner')}`}
+                onPress={() => setTaskMode('partner')}
+                style={styles.modeBtn}
+                textStyle={styles.modeBtnText}
               />
             </View>
 
@@ -324,14 +543,22 @@ export function HomeScreen({ lang }: { lang: Lang }) {
               data={filteredTemplates}
               keyExtractor={(tpl) => tpl.id}
               style={styles.taskList}
-              renderItem={({ item }) => (
-                <TaskCard
-                  template={item}
-                  title={templateTitle(item, lang)}
-                  onClaim={claim}
-                  claimButtonText={t(lang, 'home.claim')}
-                />
-              )}
+              renderItem={({ item }) => {
+                const effectivePts = taskPointOverrides[item.id] ?? item.defaultPoints;
+                const itemWithOverride = { ...item, defaultPoints: effectivePts };
+                return (
+                  <TaskCard
+                    template={itemWithOverride}
+                    title={templateTitle(item, lang)}
+                    onClaim={handleTaskAction}
+                    onEditPoints={openEditTaskModal}
+                    claimButtonText={
+                      taskMode === 'self' ? t(lang, 'home.claim') : t(lang, 'home.requestButton')
+                    }
+                    variant={taskMode === 'self' ? 'primary' : 'amber'}
+                  />
+                );
+              }}
             />
 
             {/* Custom Quest Creator Accordion */}
@@ -354,8 +581,8 @@ export function HomeScreen({ lang }: { lang: Lang }) {
                   onChangeText={setCustomPoints}
                 />
                 <BouncyPressable
-                  variant="primary"
-                  title={t(lang, 'home.save')}
+                  variant={taskMode === 'self' ? 'primary' : 'amber'}
+                  title={taskMode === 'self' ? t(lang, 'home.save') : t(lang, 'home.requestButton')}
                   onPress={saveCustom}
                   style={styles.saveCustomBtn}
                 />
@@ -383,7 +610,11 @@ export function HomeScreen({ lang }: { lang: Lang }) {
         <View style={styles.modalBackdrop}>
           <View style={styles.sheetContainer}>
             <View style={styles.sheetHeader}>
-              <Text style={styles.sheetTitle}>🏆 {t(lang, 'home.newGoal')}</Text>
+              <Text style={styles.sheetTitle}>
+                {goalModalMode === 'edit'
+                  ? `✏️ ${t(lang, 'home.editGoal')}`
+                  : `🏆 ${t(lang, 'home.newGoal')}`}
+              </Text>
               <BouncyPressable
                 variant="ghost"
                 title="✕"
@@ -416,7 +647,7 @@ export function HomeScreen({ lang }: { lang: Lang }) {
               />
 
               <Text style={styles.inputLabel}>{t(lang, 'home.rewardLabel')}</Text>
-              {REWARD_TEMPLATES.map((r) => {
+              {allRewards.map((r) => {
                 const isSelected = rewardId === r.id;
                 return (
                   <BouncyPressable
@@ -425,26 +656,239 @@ export function HomeScreen({ lang }: { lang: Lang }) {
                     onPress={() => setRewardId(r.id)}
                     style={styles.rewardCard}
                   >
-                    <Text style={styles.rewardEmoji}>🎁</Text>
+                    <Text style={styles.rewardEmoji}>{r.custom ? '🌟' : '🎁'}</Text>
                     <Text style={styles.rewardTitleText}>
-                      {rewardTitle(r, lang)} (%{r.thresholdPct})
+                      {rewardTitle(r, lang)} (%{r.thresholdPct}) {r.custom ? '★' : ''}
                     </Text>
                     <Text style={styles.rewardCheck}>{isSelected ? '✓' : ''}</Text>
                   </BouncyPressable>
                 );
               })}
 
+              {/* Custom Reward Creator */}
+              <View style={styles.customRewardBox}>
+                <Text style={styles.customHeading}>✨ {t(lang, 'home.customRewardTitle')}</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder={t(lang, 'home.rewardPlaceholder')}
+                  placeholderTextColor="#94a3b8"
+                  value={customRewardTitle}
+                  onChangeText={setCustomRewardTitle}
+                />
+                <View style={styles.customRewardBottomRow}>
+                  <View style={styles.pctChipsGroup}>
+                    {[25, 60, 100].map((pct) => (
+                      <BouncyPressable
+                        key={pct}
+                        title={`%${pct}`}
+                        variant={customRewardPct === pct ? 'secondary' : 'ghost'}
+                        onPress={() => setCustomRewardPct(pct)}
+                        style={styles.categoryChip}
+                        textStyle={styles.categoryChipText}
+                      />
+                    ))}
+                  </View>
+                  <BouncyPressable
+                    variant="primary"
+                    title={t(lang, 'home.addReward')}
+                    onPress={saveCustomReward}
+                    style={styles.saveCustomBtn}
+                  />
+                </View>
+              </View>
+
               {error.length > 0 && <Text style={styles.error}>{error}</Text>}
 
               <View style={styles.goalActions}>
                 <BouncyPressable
                   variant="amber"
-                  title={`🚀 ${t(lang, 'home.start')}`}
+                  title={
+                    goalModalMode === 'edit'
+                      ? `💾 ${t(lang, 'home.updateGoal')}`
+                      : `🚀 ${t(lang, 'home.start')}`
+                  }
                   onPress={saveGoal}
                   style={styles.startGoalBtn}
                 />
+                {goalModalMode === 'edit' && (
+                  <BouncyPressable
+                    variant="ghost"
+                    title={`🔄 ${t(lang, 'home.newGoal')} (Sıfırla)`}
+                    onPress={() => {
+                      setGoalModalMode('new');
+                      setGoalTitle('');
+                      setGoalTarget('');
+                    }}
+                    style={styles.switchGoalModeBtn}
+                    textStyle={styles.switchGoalModeText}
+                  />
+                )}
               </View>
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Milestone Inspection Sheet / Modal */}
+      <Modal visible={selectedMilestone !== null} transparent animationType="fade">
+        <View style={styles.modalBackdrop}>
+          <View style={styles.milestoneSheet}>
+            {selectedMilestone && (() => {
+              const milestoneTarget = Math.round(target * (selectedMilestone.pct / 100));
+              const isReached = total >= milestoneTarget;
+              const remaining = Math.max(0, milestoneTarget - total);
+              const milestoneReward = allRewards.find(
+                (r) => r.thresholdPct === selectedMilestone.pct,
+              );
+
+              return (
+                <>
+                  <View style={styles.sheetHeader}>
+                    <View style={styles.milestoneBadgeRow}>
+                      <View
+                        style={[
+                          styles.milestoneIconBox,
+                          isReached ? styles.pinReached : styles.pinLocked,
+                        ]}
+                      >
+                        <Text style={styles.milestoneIconText}>
+                          {isReached ? '★' : '•'}
+                        </Text>
+                      </View>
+                      <Text style={styles.sheetTitle}>
+                        {t(lang, 'home.milestonesTitle')} (%{selectedMilestone.pct})
+                      </Text>
+                    </View>
+                    <BouncyPressable
+                      variant="ghost"
+                      title="✕"
+                      onPress={() => setSelectedMilestone(null)}
+                      style={styles.closeButton}
+                    />
+                  </View>
+
+                  <View style={styles.milestoneBody}>
+                    <View style={styles.milestoneStatCard}>
+                      <Text style={styles.milestoneStatLabel}>Gereken Hedef</Text>
+                      <Text style={styles.milestoneStatValue}>{milestoneTarget} XP</Text>
+                      <Text style={styles.milestoneStatSub}>
+                        {isReached
+                          ? '🎉 Bu kademeye ulaşıldı!'
+                          : `Hedefe kalan: ${remaining} XP`}
+                      </Text>
+                    </View>
+
+                    {milestoneReward && (
+                      <View style={styles.milestoneRewardCard}>
+                        <Text style={styles.milestoneRewardEmoji}>🎁</Text>
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.milestoneRewardHeading}>
+                            Bu Kademede Açılan Ödül
+                          </Text>
+                          <Text style={styles.milestoneRewardName}>
+                            {rewardTitle(milestoneReward, lang)}
+                          </Text>
+                        </View>
+                      </View>
+                    )}
+                  </View>
+
+                  <BouncyPressable
+                    variant="primary"
+                    title="Tamam"
+                    onPress={() => setSelectedMilestone(null)}
+                    style={styles.milestoneDoneBtn}
+                  />
+                </>
+              );
+            })()}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Task Points Customizer Modal */}
+      <Modal visible={editingTask !== null} transparent animationType="fade">
+        <View style={styles.modalBackdrop}>
+          <View style={styles.taskEditSheet}>
+            {editingTask && (
+              <>
+                <View style={styles.sheetHeader}>
+                  <Text style={styles.sheetTitle}>✏️ {t(lang, 'home.editTaskPoints')}</Text>
+                  <BouncyPressable
+                    variant="ghost"
+                    title="✕"
+                    onPress={() => {
+                      setEditingTask(null);
+                      setError('');
+                    }}
+                    style={styles.closeButton}
+                  />
+                </View>
+
+                <Text style={styles.taskEditTitle}>
+                  {templateTitle(editingTask, lang)}
+                </Text>
+                <Text style={styles.taskEditNotice}>
+                  {t(lang, 'home.minMaxPointsNotice')} (10 - 50 XP)
+                </Text>
+
+                <View style={styles.taskEditStepperRow}>
+                  <Pressable
+                    onPress={() => {
+                      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      const n = Math.max(10, (Number(editingTaskPoints) || 10) - 5);
+                      setEditingTaskPoints(String(n));
+                    }}
+                    style={styles.taskStepperBigBtn}
+                    accessibilityRole="button"
+                    accessibilityLabel="5 XP Azalt"
+                  >
+                    <Text style={styles.taskStepperBigText}>-5</Text>
+                  </Pressable>
+
+                  <TextInput
+                    style={styles.taskEditInput}
+                    value={editingTaskPoints}
+                    onChangeText={setEditingTaskPoints}
+                    keyboardType="number-pad"
+                    maxLength={3}
+                  />
+
+                  <Pressable
+                    onPress={() => {
+                      void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      const n = Math.min(50, (Number(editingTaskPoints) || 10) + 5);
+                      setEditingTaskPoints(String(n));
+                    }}
+                    style={styles.taskStepperBigBtn}
+                    accessibilityRole="button"
+                    accessibilityLabel="5 XP Artır"
+                  >
+                    <Text style={styles.taskStepperBigText}>+5</Text>
+                  </Pressable>
+                </View>
+
+                {error.length > 0 && <Text style={styles.error}>{error}</Text>}
+
+                <View style={styles.taskEditActions}>
+                  <BouncyPressable
+                    variant="primary"
+                    title={t(lang, 'home.save')}
+                    onPress={saveTaskPoints}
+                    style={{ flex: 1 }}
+                  />
+                  <BouncyPressable
+                    variant="ghost"
+                    title={t(lang, 'home.cancel')}
+                    onPress={() => {
+                      setEditingTask(null);
+                      setError('');
+                    }}
+                    style={{ flex: 1 }}
+                  />
+                </View>
+              </>
+            )}
           </View>
         </View>
       </Modal>
@@ -457,7 +901,7 @@ export function HomeScreen({ lang }: { lang: Lang }) {
         newGoalButtonText={t(lang, 'home.newGoal')}
         onNewGoal={() => {
           setCelebratedGoal(false);
-          setGoalModal(true);
+          openNewGoalModal();
         }}
         onClose={() => setCelebratedGoal(false)}
       />
@@ -503,7 +947,43 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   goalHeader: {
-    gap: 2,
+    gap: 4,
+  },
+  goalRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  goalRowActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  editGoalBtn: {
+    backgroundColor: '#eff6ff',
+    borderColor: '#bfdbfe',
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  editGoalBtnText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#1d4ed8',
+  },
+  activeRewardBadge: {
+    backgroundColor: '#fef3c7',
+    borderColor: '#fde68a',
+    borderWidth: 1,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  activeRewardText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#b45309',
   },
   goalSubtitle: {
     fontSize: 12,
@@ -527,6 +1007,101 @@ const styles = StyleSheet.create({
   actionText: {
     fontSize: 15,
     fontWeight: '800',
+  },
+  incomingSection: {
+    backgroundColor: '#fef3c7',
+    borderColor: '#fde68a',
+    borderWidth: 1.5,
+    borderRadius: 18,
+    padding: 12,
+    gap: 8,
+  },
+  incomingSectionTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#92400e',
+  },
+  incomingBadge: {
+    backgroundColor: '#d97706',
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+  },
+  incomingBadgeText: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#ffffff',
+  },
+  requestCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    padding: 12,
+    gap: 8,
+  },
+  requestLeft: {
+    gap: 2,
+  },
+  requestNote: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#b45309',
+  },
+  requestTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1e293b',
+  },
+  requestPoints: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0f766e',
+  },
+  requestActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 8,
+  },
+  actionMiniBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    minHeight: 32,
+  },
+  outgoingSection: {
+    backgroundColor: '#f1f5f9',
+    borderRadius: 14,
+    padding: 10,
+    gap: 6,
+  },
+  outgoingSubtitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748b',
+  },
+  outgoingCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#ffffff',
+    borderRadius: 10,
+    padding: 8,
+    paddingHorizontal: 10,
+  },
+  outgoingText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#334155',
+    flex: 1,
+  },
+  cancelMiniBtn: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    minHeight: 26,
+    borderRadius: 6,
+  },
+  cancelMiniText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -564,7 +1139,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   pendingList: {
-    maxHeight: 140,
+    maxHeight: 150,
   },
   pendingCard: {
     backgroundColor: '#ffffff',
@@ -596,6 +1171,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '800',
     color: '#0f766e',
+  },
+  waitingBadge: {
+    backgroundColor: '#f8fafc',
+    borderColor: '#e2e8f0',
+    borderWidth: 1,
+    borderRadius: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    alignItems: 'center',
+  },
+  waitingText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748b',
   },
   pendingActions: {
     flexDirection: 'row',
@@ -684,21 +1273,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '800',
   },
-  categoryChipsRow: {
-    flexDirection: 'row',
-    gap: 6,
-    marginTop: 4,
-  },
-  categoryChip: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 8,
-    minHeight: 28,
-  },
-  categoryChipText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
   modalBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(15, 23, 42, 0.6)',
@@ -709,7 +1283,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     padding: 20,
-    maxHeight: '85%',
+    maxHeight: '88%',
     gap: 12,
   },
   sheetHeader: {
@@ -732,6 +1306,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  modeSwitcher: {
+    flexDirection: 'row',
+    backgroundColor: '#f1f5f9',
+    borderRadius: 14,
+    padding: 4,
+    gap: 4,
+  },
+  modeBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 10,
+    minHeight: 38,
+  },
+  modeBtnText: {
+    fontSize: 13,
+    fontWeight: '800',
+  },
   categoryTabs: {
     flexDirection: 'row',
     gap: 6,
@@ -747,7 +1338,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   taskList: {
-    maxHeight: 280,
+    maxHeight: 260,
   },
   customSection: {
     borderTopWidth: 1,
@@ -783,6 +1374,21 @@ const styles = StyleSheet.create({
   saveCustomBtn: {
     minWidth: 90,
   },
+  categoryChipsRow: {
+    flexDirection: 'row',
+    gap: 6,
+    marginTop: 4,
+  },
+  categoryChip: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    minHeight: 28,
+  },
+  categoryChipText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
   rewardCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -813,9 +1419,191 @@ const styles = StyleSheet.create({
   startGoalBtn: {
     width: '100%',
   },
+  customRewardBox: {
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+    paddingTop: 12,
+    marginTop: 8,
+    gap: 8,
+  },
+  customRewardBottomRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 8,
+  },
+  pctChipsGroup: {
+    flexDirection: 'row',
+    gap: 6,
+  },
   error: {
     color: '#dc2626',
     fontSize: 12,
     fontWeight: '600',
+  },
+  switchGoalModeBtn: {
+    marginTop: 8,
+    alignItems: 'center',
+  },
+  switchGoalModeText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#64748b',
+  },
+  milestoneSheet: {
+    backgroundColor: '#ffffff',
+    borderRadius: 24,
+    padding: 20,
+    width: '100%',
+    maxWidth: 400,
+    gap: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  milestoneBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  milestoneIconBox: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  milestoneIconText: {
+    fontSize: 14,
+    fontWeight: '900',
+    color: '#ffffff',
+  },
+  pinReached: {
+    backgroundColor: '#f59e0b',
+  },
+  pinLocked: {
+    backgroundColor: '#cbd5e1',
+  },
+  milestoneBody: {
+    gap: 12,
+  },
+  milestoneStatCard: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    alignItems: 'center',
+    gap: 4,
+  },
+  milestoneStatLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748b',
+    textTransform: 'uppercase',
+  },
+  milestoneStatValue: {
+    fontSize: 26,
+    fontWeight: '900',
+    color: '#0f172a',
+  },
+  milestoneStatSub: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0f766e',
+    marginTop: 2,
+  },
+  milestoneRewardCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#fef3c7',
+    borderColor: '#fde68a',
+    borderWidth: 1.5,
+    borderRadius: 16,
+    padding: 14,
+  },
+  milestoneRewardEmoji: {
+    fontSize: 24,
+  },
+  milestoneRewardHeading: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#92400e',
+    textTransform: 'uppercase',
+  },
+  milestoneRewardName: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#78350f',
+  },
+  milestoneDoneBtn: {
+    marginTop: 4,
+  },
+  taskEditSheet: {
+    backgroundColor: '#ffffff',
+    borderRadius: 24,
+    padding: 20,
+    width: '100%',
+    maxWidth: 400,
+    gap: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 8,
+  },
+  taskEditTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#1e293b',
+    textAlign: 'center',
+  },
+  taskEditNotice: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748b',
+    textAlign: 'center',
+  },
+  taskEditStepperRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+    marginVertical: 8,
+  },
+  taskStepperBigBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#f1f5f9',
+    borderWidth: 1.5,
+    borderColor: '#cbd5e1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  taskStepperBigText: {
+    fontSize: 18,
+    fontWeight: '900',
+    color: '#0f766e',
+  },
+  taskEditInput: {
+    width: 80,
+    height: 48,
+    backgroundColor: '#f8fafc',
+    borderColor: '#0f766e',
+    borderWidth: 2,
+    borderRadius: 14,
+    textAlign: 'center',
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#0f172a',
+  },
+  taskEditActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 8,
   },
 });

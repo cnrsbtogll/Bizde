@@ -45,6 +45,22 @@
 - Görev kartları (`TaskCard`): Kategori rozetleri, XP etiketleri ve bouncy iddia butonları.
 - Gates: `tsc` 0 · `eslint` 0 · `jest --ci --runInBand` 27/27 · `expo-doctor` 21/21.
 
+## 2026-09-11 — Slice 4: hibrit görev akışı (Ben Yaptım + Partnerime Rica Et)
+- Kafa karışıklığı ve rol çakışması çözüldü:
+  - Görev modalında iki mod: `[ 🙋 Ben Yaptım ]` vs `[ 💌 {Partner}'a Rica Et ]`.
+  - Kendi kendini onaylama açığı kapatıldı: Bir görevi yapan kişi (iddia eden), ana sayfada kendi onay butonunu göremez; *"Partnerin onayı bekleniyor..."* rozeti görür.
+  - Partnerden rica edilen görevler, partnerin ana sayfasında *"💌 {Partner} senden rica etti"* olarak görünür; partner *"✨ Yaptım!"* deyince onaya düşer.
+- Store: `requestTask`, `completeRequestedTask`, `incomingRequests`, `outgoingRequests` eklendi.
+- Gates: `tsc` 0 · `eslint` 0 · `jest --ci --runInBand` 29/29 · `expo-doctor` 21/21.
+
+## 2026-09-11 — Slice 5: özel ödül belirleme + metin karakter düzeltmesi
+- Ekran görüntüsündeki `&apos;` karakter kodlama sorunu tamamen temizlendi (React Native'e uygun gerçek `'` tek tırnak kullanıldı).
+- Çiftlerin kendi ödüllerini belirleyebilmesi sağlandı:
+  - Hedef belirleme modalına özel ödül ekleme bölümü (`customRewardBox`) eklendi: başlık + eşik yüzdesi (%25, %60, %100).
+  - Store: `customRewards: RewardTemplate[]` ve `addCustomReward(title, thresholdPct)` eklendi.
+  - Ana sayfada hedefin karşısında güncel büyük ödül rozeti (`🎁 Büyük Ödül: ...`) gösterildi.
+- Gates: `tsc` 0 · `eslint` 0 · `jest --ci --runInBand` 30/30 · `expo-doctor` 21/21.
+
 ## Next
 - Kalıcılık (`zustand/persist` + AsyncStorage) — restartta veri siliniyor.
 - Firestore pairing lookup + activity sync when backend env exists (see

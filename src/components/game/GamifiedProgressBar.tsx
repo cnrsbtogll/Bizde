@@ -1,11 +1,12 @@
 import { useEffect } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
 } from 'react-native-reanimated';
-import { MILESTONES } from '@/lib/progress';
+import { MILESTONES, type Milestone } from '@/lib/progress';
 
 interface GamifiedProgressBarProps {
   total: number;
@@ -16,6 +17,9 @@ interface GamifiedProgressBarProps {
   member2Points: number;
   color1?: string;
   color2?: string;
+  onMilestonePress?: (milestone: Milestone) => void;
+  onAdjustTarget?: (delta: number) => void;
+  onEditGoal?: () => void;
 }
 
 const SPRING_CONFIG = {
@@ -32,6 +36,9 @@ export function GamifiedProgressBar({
   member2Points,
   color1 = '#0f766e',
   color2 = '#ea580c',
+  onMilestonePress,
+  onAdjustTarget,
+  onEditGoal,
 }: GamifiedProgressBarProps) {
   const fraction = target > 0 ? Math.min(1, Math.max(0, total / target)) : 0;
   const f1 = total > 0 ? member1Points / total : 0;
@@ -57,12 +64,51 @@ export function GamifiedProgressBar({
   return (
     <View style={styles.card}>
       <View style={styles.topRow}>
-        <View style={styles.levelBadge}>
-          <Text style={styles.levelText}>HEDEF XP</Text>
+        <Pressable
+          onPress={() => {
+            void Haptics.selectionAsync();
+            onEditGoal?.();
+          }}
+          style={styles.levelBadge}
+          accessibilityRole="button"
+          accessibilityLabel="Hedefi Düzenle"
+        >
+          <Text style={styles.levelText}>HEDEF XP ✏️</Text>
+        </Pressable>
+
+        <View style={styles.targetControlGroup}>
+          {onAdjustTarget && (
+            <Pressable
+              onPress={() => {
+                void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                onAdjustTarget(-50);
+              }}
+              style={styles.stepperBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Hedefi 50 XP azalt"
+            >
+              <Text style={styles.stepperBtnText}>-</Text>
+            </Pressable>
+          )}
+
+          <Text style={styles.pointsCounter}>
+            <Text style={styles.boldPoints}>{total}</Text> / {target} XP
+          </Text>
+
+          {onAdjustTarget && (
+            <Pressable
+              onPress={() => {
+                void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                onAdjustTarget(50);
+              }}
+              style={styles.stepperBtn}
+              accessibilityRole="button"
+              accessibilityLabel="Hedefi 50 XP artır"
+            >
+              <Text style={styles.stepperBtnText}>+</Text>
+            </Pressable>
+          )}
         </View>
-        <Text style={styles.pointsCounter}>
-          <Text style={styles.boldPoints}>{total}</Text> / {target} XP
-        </Text>
       </View>
 
       {/* Main Track */}
@@ -87,12 +133,18 @@ export function GamifiedProgressBar({
         {MILESTONES.map((m) => {
           const isReached = percentage >= m.pct;
           return (
-            <View
+            <Pressable
               key={m.pct}
+              onPress={() => {
+                void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                onMilestonePress?.(m);
+              }}
               style={[
                 styles.pinContainer,
                 { left: `${m.pct}%` },
               ]}
+              accessibilityRole="button"
+              accessibilityLabel={`Kademe %${m.pct}`}
             >
               <View
                 style={[
@@ -102,7 +154,10 @@ export function GamifiedProgressBar({
               >
                 <Text style={styles.pinIcon}>{isReached ? '★' : '•'}</Text>
               </View>
-            </View>
+              <Text style={[styles.pinPctLabel, isReached && styles.pinPctLabelReached]}>
+                %{m.pct}
+              </Text>
+            </Pressable>
           );
         })}
       </View>
@@ -132,6 +187,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderRadius: 20,
     padding: 16,
+    paddingBottom: 22,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
@@ -139,7 +195,7 @@ const styles = StyleSheet.create({
     elevation: 3,
     borderWidth: 1.5,
     borderColor: '#f1f5f9',
-    gap: 12,
+    gap: 14,
   },
   topRow: {
     flexDirection: 'row',
@@ -151,7 +207,7 @@ const styles = StyleSheet.create({
     borderColor: '#fde68a',
     borderWidth: 1,
     paddingHorizontal: 10,
-    paddingVertical: 3,
+    paddingVertical: 4,
     borderRadius: 12,
   },
   levelText: {
@@ -159,6 +215,27 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#b45309',
     letterSpacing: 0.5,
+  },
+  targetControlGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  stepperBtn: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#f1f5f9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+  },
+  stepperBtnText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: '#334155',
+    lineHeight: 18,
   },
   pointsCounter: {
     fontSize: 15,
@@ -177,6 +254,7 @@ const styles = StyleSheet.create({
     overflow: 'visible',
     position: 'relative',
     justifyContent: 'center',
+    marginBottom: 6,
   },
   filledTrack: {
     height: '100%',
@@ -219,6 +297,15 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#ffffff',
     fontWeight: '900',
+  },
+  pinPctLabel: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#94a3b8',
+    marginTop: 2,
+  },
+  pinPctLabelReached: {
+    color: '#b45309',
   },
   legendRow: {
     flexDirection: 'row',

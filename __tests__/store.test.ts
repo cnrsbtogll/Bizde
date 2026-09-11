@@ -1,5 +1,7 @@
 import {
   historyActivities,
+  incomingRequests,
+  outgoingRequests,
   pendingActivities,
   totalPoints,
   totalsByMember,
@@ -122,5 +124,66 @@ describe('custom cards', () => {
     expect(id).not.toBeNull();
     expect(useBizde.getState().approveActivity(id as string)).toBe(true);
     expect(totalPoints(useBizde.getState().activities)).toBe(25);
+  });
+});
+
+describe('hybrid task request flow', () => {
+  it('requestTask creates a requested activity for partner', () => {
+    pairedAs('Leyla', 'Caner');
+    useBizde.getState().setActor('Leyla');
+    const id = useBizde.getState().requestTask('Bulaşıkları yıka', 15, 'ev-bulasik');
+    expect(id).not.toBeNull();
+
+    const activities = useBizde.getState().activities;
+    // Puan is not in the bar yet
+    expect(totalPoints(activities)).toBe(0);
+
+    // Caner sees this in incomingRequests
+    const canerRequests = incomingRequests(activities, 'Caner');
+    expect(canerRequests).toHaveLength(1);
+    expect(canerRequests[0]?.claimedBy).toBe('Caner');
+    expect(canerRequests[0]?.requestedBy).toBe('Leyla');
+    expect(canerRequests[0]?.status).toBe('requested');
+
+    // Leyla sees this in outgoingRequests
+    const leylaOutgoing = outgoingRequests(activities, 'Leyla');
+    expect(leylaOutgoing).toHaveLength(1);
+  });
+
+  it('completeRequestedTask transitions requested -> pending, then requester approves', () => {
+    pairedAs('Leyla', 'Caner');
+    useBizde.getState().setActor('Leyla');
+    const id = useBizde.getState().requestTask('Bulaşıkları yıka', 15, 'ev-bulasik');
+
+    // Caner completes it
+    useBizde.getState().setActor('Caner');
+    expect(useBizde.getState().completeRequestedTask(id as string)).toBe(true);
+
+    const afterDone = useBizde.getState().activities;
+    expect(pendingActivities(afterDone)).toHaveLength(1);
+
+    // Leyla approves Caner's work
+    useBizde.getState().setActor('Leyla');
+    expect(useBizde.getState().approveActivity(id as string)).toBe(true);
+
+    const finalState = useBizde.getState();
+    expect(totalPoints(finalState.activities)).toBe(15);
+    // Caner earned the points
+    expect(totalsByMember(finalState.activities, finalState.members)).toEqual([0, 15]);
+  });
+});
+
+describe('custom rewards', () => {
+  it('adds custom reward and allows setting it as goal reward', () => {
+    pairedAs('Leyla', 'Caner');
+    const rid = useBizde.getState().addCustomReward('Hafta sonu spa', 100);
+    expect(rid).not.toBeNull();
+    const rewards = useBizde.getState().customRewards;
+    expect(rewards).toHaveLength(1);
+    expect(rewards[0]?.tr).toBe('Hafta sonu spa');
+    expect(rewards[0]?.thresholdPct).toBe(100);
+
+    expect(useBizde.getState().startNewGoal('Birlikte spa', 400, rid as string)).toBe(true);
+    expect(useBizde.getState().activeGoal.rewardId).toBe(rid);
   });
 });
