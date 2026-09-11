@@ -79,3 +79,189 @@ export function findReward(
   if (!id) return undefined;
   return custom.find((c) => c.id === id) ?? REWARD_TEMPLATES.find((c) => c.id === id);
 }
+
+export type RewardAudience = 'ortak' | 'kadin_icin' | 'erkek_icin';
+
+export interface GoalPackage {
+  id: string;
+  badge: string;
+  titleTr: string;
+  titleEn: string;
+  targetPoints: number;
+  audience: RewardAudience;
+  m25Tr?: string;
+  m25En?: string;
+  m60Tr?: string;
+  m60En?: string;
+}
+
+export const GOAL_PACKAGES: GoalPackage[] = [
+  // Kadın / Partner Paketleri
+  {
+    id: 'pkg-kadin-romantik',
+    badge: '🍷',
+    titleTr: 'Romantik Kaçamak & Şımartma',
+    titleEn: 'Romantic Getaway & Pampering',
+    targetPoints: 250,
+    audience: 'kadin_icin',
+    m25Tr: 'En Sevdiği Tatlı & Çiçek',
+    m25En: 'Favorite Dessert & Flowers',
+    m60Tr: 'Mum Işığında Baş Başa Akşam Yemeği',
+    m60En: 'Candlelight Dinner Together',
+  },
+  {
+    id: 'pkg-kadin-spa',
+    badge: '💆‍♀️',
+    titleTr: 'Hafta Sonu Spa & Masaj Günü',
+    titleEn: 'Weekend Spa & Massage Day',
+    targetPoints: 200,
+    audience: 'kadin_icin',
+    m25Tr: 'Sürpriz Kahve & Favori Tatlı',
+    m25En: 'Surprise Coffee & Dessert',
+    m60Tr: 'Rahatlatıcı Ayak / Sırt Masajı',
+    m60En: 'Relaxing Foot / Back Massage',
+  },
+  {
+    id: 'pkg-kadin-alisveris',
+    badge: '🛍️',
+    titleTr: 'Baş Başa Alışveriş & Akşam Yemeği',
+    titleEn: 'Shopping & Dinner Together',
+    targetPoints: 180,
+    audience: 'kadin_icin',
+    m25Tr: 'Kahve Molası',
+    m25En: 'Coffee Break',
+    m60Tr: 'Şık Bir Restoranda Yemek',
+    m60En: 'Dinner at a Nice Restaurant',
+  },
+
+  // Erkek / Partner Paketleri
+  {
+    id: 'pkg-erkek-oyun',
+    badge: '🎮',
+    titleTr: '3 Saat Kesintisiz PS & Masaj Gecesi',
+    titleEn: '3h PS Gaming & Massage Night',
+    targetPoints: 200,
+    audience: 'erkek_icin',
+    m25Tr: 'Favori Atıştırmalık & İçecek',
+    m25En: 'Favorite Snack & Drink',
+    m60Tr: '3 Saat Kesintisiz PS / Oyun Keyfi',
+    m60En: '3 Hours Uninterrupted PS / Gaming',
+  },
+  {
+    id: 'pkg-erkek-mac',
+    badge: '⚽',
+    titleTr: 'Maç & Arkadaş Gecesi Keyfi',
+    titleEn: 'Match & Friends Night',
+    targetPoints: 150,
+    audience: 'erkek_icin',
+    m25Tr: 'Maç Önü Atıştırmalık Hazırlığı',
+    m25En: 'Pre-game Snack Prep',
+    m60Tr: 'Rahat Maç İzleme Saati',
+    m60En: 'Undisturbed Match Time',
+  },
+  {
+    id: 'pkg-erkek-ozel',
+    badge: '🔥',
+    titleTr: 'Rahatlatıcı Masaj & Özel Gece',
+    titleEn: 'Relaxing Massage & Special Night',
+    targetPoints: 220,
+    audience: 'erkek_icin',
+    m25Tr: 'Sıcak Duş & Çay / Kahve Servisi',
+    m25En: 'Hot Shower & Tea / Coffee',
+    m60Tr: 'Omuz ve Sırt Masajı',
+    m60En: 'Shoulder & Back Massage',
+  },
+
+  // Ortak Paketler
+  {
+    id: 'pkg-ortak-tatil',
+    badge: '🥂',
+    titleTr: 'Birlikte Mini Tatil & Konser',
+    titleEn: 'Weekend Getaway & Concert',
+    targetPoints: 400,
+    audience: 'ortak',
+    m25Tr: 'Kahve & Tatlı Kaçamağı',
+    m25En: 'Coffee & Dessert Break',
+    m60Tr: 'Sinema & Dışarıda Akşam Yemeği',
+    m60En: 'Movie & Dinner Out',
+  },
+  {
+    id: 'pkg-ortak-dinlenme',
+    badge: '🛋️',
+    titleTr: 'Evde Sıfır İş / Pazar Huzuru',
+    titleEn: 'Zero Chores / Sunday Chill',
+    targetPoints: 250,
+    audience: 'ortak',
+    m25Tr: 'Yatakta Kahvaltı Servisi',
+    m25En: 'Breakfast in Bed',
+    m60Tr: 'Favori Dizi Maratonu & Pizza',
+    m60En: 'TV Show Marathon & Pizza',
+  },
+];
+
+export interface AudienceOption {
+  key: RewardAudience;
+  labelTr: string;
+  labelEn: string;
+  badge: string;
+}
+
+export const AUDIENCE_OPTIONS: AudienceOption[] = [
+  { key: 'ortak', labelTr: 'Ortak Ödüller', labelEn: 'Couple Rewards', badge: '🥂' },
+  { key: 'kadin_icin', labelTr: 'Kadın İçin', labelEn: 'For Her', badge: '🍷' },
+  { key: 'erkek_icin', labelTr: 'Erkek İçin', labelEn: 'For Him', badge: '🎮' },
+];
+
+export interface MilestoneSuggestions {
+  m25: { tr: string; en: string }[];
+  m60: { tr: string; en: string }[];
+  m100: { tr: string; en: string }[];
+}
+
+export const SUGGESTIONS_BY_AUDIENCE: Record<RewardAudience, MilestoneSuggestions> = {
+  ortak: {
+    m25: [
+      { tr: 'Kahve & Tatlı Kaçamağı', en: 'Coffee & Dessert Break' },
+      { tr: 'Birlikte Dondurma Yürüyüşü', en: 'Ice Cream Walk' },
+    ],
+    m60: [
+      { tr: 'Sinema & Pizza Gecesi', en: 'Movie & Pizza Night' },
+      { tr: 'Birlikte Yeni Bir Restoran', en: 'Trying a New Restaurant' },
+    ],
+    m100: [
+      { tr: 'Birlikte Hafta Sonu Tatili', en: 'Weekend Trip Together' },
+      { tr: 'Konser & Lüks Akşam Yemeği', en: 'Concert & Fancy Dinner' },
+      { tr: 'Tam Gün Sıfır Ev İşi / Pazar Huzuru', en: 'Zero Chores Sunday Chill' },
+    ],
+  },
+  kadin_icin: {
+    m25: [
+      { tr: 'En Sevdiği Çiçek & Not', en: 'Her Favorite Flowers & Note' },
+      { tr: 'Sürpriz Kahve & Favori Tatlısı', en: 'Surprise Coffee & Pastry' },
+    ],
+    m60: [
+      { tr: 'Mum Işığında Baş Başa Akşam Yemeği', en: 'Candlelight Dinner Together' },
+      { tr: 'Baş Başa Şarap & Kokteyl Gecesi', en: 'Wine & Cocktail Night' },
+    ],
+    m100: [
+      { tr: 'Hafta Sonu Spa & Masaj Kaçamağı', en: 'Weekend Spa & Massage Getaway' },
+      { tr: 'İstediği Şehirde Mini Tatil', en: 'Mini Vacation She Chooses' },
+      { tr: 'Bütün Gün Prenses Muamelesi', en: 'All-Day Princess Treatment' },
+    ],
+  },
+  erkek_icin: {
+    m25: [
+      { tr: 'Favori Atıştırmalık & Soğuk İçecek', en: 'Favorite Snacks & Cold Drink' },
+      { tr: 'Günün Yorgunluğu İçin Sırt Masajı', en: 'Relaxing Back Massage' },
+    ],
+    m60: [
+      { tr: '3 Saat Kesintisiz PS / Oyun Keyfi', en: '3h Uninterrupted PS / Gaming' },
+      { tr: 'Arkadaşlarla Rahat Maç Gecesi', en: 'Game Night with Friends' },
+    ],
+    m100: [
+      { tr: 'Rahatlatıcı Masaj & Özel Gece', en: 'Relaxing Massage & Special Night' },
+      { tr: 'Tam Gün Kesintisiz Oyun / Hobi Günü', en: 'All-Day Gaming / Hobby Day' },
+      { tr: 'Özel Akşam Menüsü & Gece Keyfi', en: 'Special Dinner & Night Chill' },
+    ],
+  },
+};

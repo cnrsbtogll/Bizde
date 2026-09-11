@@ -183,7 +183,72 @@ describe('custom rewards', () => {
     expect(rewards[0]?.tr).toBe('Hafta sonu spa');
     expect(rewards[0]?.thresholdPct).toBe(100);
 
-    expect(useBizde.getState().startNewGoal('Birlikte spa', 400, rid as string)).toBe(true);
-    expect(useBizde.getState().activeGoal.rewardId).toBe(rid);
+    expect(useBizde.getState().startNewGoal('Birlikte spa', 400, 'Kahve', 'Film')).toBe(true);
+    expect(useBizde.getState().activeGoal.title).toBe('Birlikte spa');
+    expect(useBizde.getState().activeGoal.m25Title).toBe('Kahve');
+    expect(useBizde.getState().activeGoal.m60Title).toBe('Film');
+  });
+
+  it('updates personal goal for a member and retrieves defaults', () => {
+    const { getPersonalGoal } = require('@/store');
+    pairedAs('Emre', 'Cansu');
+    const s = useBizde.getState();
+    const g1 = getPersonalGoal(s.personalGoals, 'Emre', s.members);
+    const g2 = getPersonalGoal(s.personalGoals, 'Cansu', s.members);
+    expect(g1.title).toBe('3 Saat Kesintisiz PS & Masaj Gecesi');
+    expect(g2.title).toBe('Hafta Sonu Spa & Romantik Akşam Yemeği');
+
+    expect(useBizde.getState().updatePersonalGoal('Emre', 'Yeni PS Hedefi', 250, 'Atıştırmalık', 'Oyun')).toBe(true);
+    const updated = useBizde.getState().personalGoals['Emre'];
+    expect(updated?.title).toBe('Yeni PS Hedefi');
+    expect(updated?.targetPoints).toBe(250);
   });
 });
+
+describe('mutual goal proposal flow', () => {
+  it('proposes common goal and enforces min 150 points', () => {
+    pairedAs('Caner', 'Leyla');
+    useBizde.getState().setActor('Caner');
+
+    // Rejects below 150 for common goal
+    expect(useBizde.getState().proposeGoal('common', 'Ufak Hedef', 100)).toBe(false);
+
+    // Accepts 150+
+    expect(useBizde.getState().proposeGoal('common', 'Birlikte Kapadokya', 500, 'Kahve', 'Sinema')).toBe(true);
+    const proposal = useBizde.getState().pendingGoalProposal;
+    expect(proposal).not.toBeNull();
+    expect(proposal?.proposedBy).toBe('Caner');
+    expect(proposal?.title).toBe('Birlikte Kapadokya');
+    expect(proposal?.targetPoints).toBe(500);
+
+    // Goal is not changed until approved
+    expect(useBizde.getState().activeGoal.title).not.toBe('Birlikte Kapadokya');
+
+    // Leyla approves
+    useBizde.getState().setActor('Leyla');
+    expect(useBizde.getState().acceptGoalProposal()).toBe(true);
+    expect(useBizde.getState().activeGoal.title).toBe('Birlikte Kapadokya');
+    expect(useBizde.getState().activeGoal.targetPoints).toBe(500);
+    expect(useBizde.getState().pendingGoalProposal).toBeNull();
+  });
+
+  it('proposes personal goal and handles rejection', () => {
+    pairedAs('Caner', 'Leyla');
+    useBizde.getState().setActor('Leyla');
+
+    // Rejects below 100 for personal goal
+    expect(useBizde.getState().proposeGoal('Leyla', 'Bedava Yemek', 50)).toBe(false);
+
+    // Accepts 100+
+    expect(useBizde.getState().proposeGoal('Leyla', 'Spa & Akşam Yemeği', 250)).toBe(true);
+    expect(useBizde.getState().pendingGoalProposal).not.toBeNull();
+
+    // Caner rejects
+    useBizde.getState().setActor('Caner');
+    expect(useBizde.getState().rejectGoalProposal()).toBe(true);
+    expect(useBizde.getState().pendingGoalProposal).toBeNull();
+    expect(useBizde.getState().personalGoals['Leyla']?.title).not.toBe('Spa & Akşam Yemeği');
+  });
+});
+
+

@@ -35,6 +35,18 @@ export interface FinishedGoal extends Goal {
   finishedAt: number;
 }
 
+export interface GoalProposal {
+  id: string;
+  targetType: 'common' | string;
+  proposedBy: string;
+  targetMember?: string;
+  title: string;
+  targetPoints: number;
+  m25Title?: string;
+  m60Title?: string;
+  createdAt: number;
+}
+
 interface BizdeState {
   uid: string | null;
   members: string[];
@@ -61,13 +73,32 @@ interface BizdeState {
   addCustomTemplate: (title: string, points: number, category: TaskTemplate['category']) => string | null;
   addCustomReward: (title: string, thresholdPct?: number) => string | null;
   taskPointOverrides: Record<string, number>;
+  personalGoals: Record<string, Goal>;
   updateActiveGoal: (title: string, targetPoints: number, m25Title?: string, m60Title?: string) => boolean;
+  updatePersonalGoal: (
+    member: string,
+    title: string,
+    targetPoints: number,
+    m25Title?: string,
+    m60Title?: string
+  ) => boolean;
   adjustTargetPoints: (delta: number) => number;
   updateTaskPoints: (templateId: string, points: number) => boolean;
   approveActivity: (id: string, finalPoints?: number) => boolean;
   rejectActivity: (id: string) => boolean;
   appreciate: () => void;
   startNewGoal: (title: string, targetPoints: number, m25Title?: string, m60Title?: string) => boolean;
+  pendingGoalProposal: GoalProposal | null;
+  proposeGoal: (
+    targetType: 'common' | string,
+    title: string,
+    targetPoints: number,
+    m25Title?: string,
+    m60Title?: string,
+    targetMember?: string
+  ) => boolean;
+  acceptGoalProposal: () => boolean;
+  rejectGoalProposal: () => boolean;
   reset: () => void;
 }
 
@@ -101,6 +132,8 @@ export const useBizde = create<BizdeState>()((set, get) => ({
   customTemplates: [],
   customRewards: [],
   taskPointOverrides: {},
+  personalGoals: {},
+  pendingGoalProposal: null,
 
   signIn: (displayName) => {
     const name = displayName.trim();
@@ -245,7 +278,7 @@ export const useBizde = create<BizdeState>()((set, get) => ({
 
   updateActiveGoal: (title, targetPoints, m25Title, m60Title) => {
     const clean = title.trim();
-    if (!clean || !Number.isInteger(targetPoints) || targetPoints < 100 || targetPoints > 2000) return false;
+    if (!clean || !Number.isInteger(targetPoints) || targetPoints < 150 || targetPoints > 2000) return false;
     set({
       activeGoal: {
         ...get().activeGoal,
@@ -256,6 +289,76 @@ export const useBizde = create<BizdeState>()((set, get) => ({
         rewardTitle: clean,
       },
     });
+    return true;
+  },
+
+  updatePersonalGoal: (member, title, targetPoints, m25Title, m60Title) => {
+    const clean = title.trim();
+    if (!clean || !Number.isInteger(targetPoints) || targetPoints < 100 || targetPoints > 2000) return false;
+    set((s) => ({
+      personalGoals: {
+        ...s.personalGoals,
+        [member]: {
+          title: clean,
+          targetPoints,
+          m25Title: m25Title?.trim() || undefined,
+          m60Title: m60Title?.trim() || undefined,
+        },
+      },
+    }));
+    return true;
+  },
+
+  proposeGoal: (targetType, title, targetPoints, m25Title, m60Title, targetMember) => {
+    const clean = title.trim();
+    const minPts = targetType === 'common' ? 150 : 100;
+    if (!clean || !Number.isInteger(targetPoints) || targetPoints < minPts || targetPoints > 2000) {
+      return false;
+    }
+    const { members, actor, updateActiveGoal, updatePersonalGoal } = get();
+    // Tek kişi ise veya eşleşme henüz yoksa direkt onaysız uygula
+    if (members.length < 2) {
+      if (targetType === 'common') {
+        return updateActiveGoal(clean, targetPoints, m25Title, m60Title);
+      } else {
+        const who = targetMember || targetType;
+        return updatePersonalGoal(who, clean, targetPoints, m25Title, m60Title);
+      }
+    }
+
+    const proposal: GoalProposal = {
+      id: newId('prop'),
+      targetType,
+      proposedBy: actor || members[0] || 'Partner',
+      targetMember: targetMember || (targetType !== 'common' ? targetType : undefined),
+      title: clean,
+      targetPoints,
+      m25Title: m25Title?.trim() || undefined,
+      m60Title: m60Title?.trim() || undefined,
+      createdAt: Date.now(),
+    };
+
+    set({ pendingGoalProposal: proposal });
+    return true;
+  },
+
+  acceptGoalProposal: () => {
+    const { pendingGoalProposal, updateActiveGoal, updatePersonalGoal } = get();
+    if (!pendingGoalProposal) return false;
+    const { targetType, targetMember, title, targetPoints, m25Title, m60Title } = pendingGoalProposal;
+    if (targetType === 'common') {
+      updateActiveGoal(title, targetPoints, m25Title, m60Title);
+    } else {
+      const who = targetMember || targetType;
+      updatePersonalGoal(who, title, targetPoints, m25Title, m60Title);
+    }
+    set({ pendingGoalProposal: null });
+    return true;
+  },
+
+  rejectGoalProposal: () => {
+    if (!get().pendingGoalProposal) return false;
+    set({ pendingGoalProposal: null });
     return true;
   },
 
@@ -348,7 +451,7 @@ export const useBizde = create<BizdeState>()((set, get) => ({
 
   startNewGoal: (title, targetPoints, m25Title, m60Title) => {
     const clean = title.trim();
-    if (!clean || !Number.isInteger(targetPoints) || targetPoints < 100 || targetPoints > 2000) return false;
+    if (!clean || !Number.isInteger(targetPoints) || targetPoints < 150 || targetPoints > 2000) return false;
     const { activeGoal, activities } = get();
     const total = totalPoints(activities);
     set({
@@ -379,8 +482,33 @@ export const useBizde = create<BizdeState>()((set, get) => ({
       customTemplates: [],
       customRewards: [],
       taskPointOverrides: {},
+      personalGoals: {},
+      pendingGoalProposal: null,
     }),
 }));
+
+export function getPersonalGoal(
+  personalGoals: Record<string, Goal>,
+  member: string = '',
+  members: string[] = []
+): Goal {
+  if (personalGoals[member]) return personalGoals[member];
+  const isSecond = members.length > 1 && members[1] === member;
+  if (isSecond) {
+    return {
+      title: 'Hafta Sonu Spa & Romantik Akşam Yemeği',
+      targetPoints: 200,
+      m25Title: 'En Sevdiği Çiçek & Tatlı',
+      m60Title: 'Mum Işığında Akşam Yemeği',
+    };
+  }
+  return {
+    title: '3 Saat Kesintisiz PS & Masaj Gecesi',
+    targetPoints: 200,
+    m25Title: 'Favori Atıştırmalık & İçecek',
+    m60Title: '3 Saat Kesintisiz Oyun / Maç',
+  };
+}
 
 /** Onaylı toplam — bar ve hedef hesabı tek yerden. */
 export function totalPoints(activities: Activity[]): number {

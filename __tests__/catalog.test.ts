@@ -34,4 +34,21 @@ describe('catalog', () => {
     expect(clampPoints(1, t)).toBe(t.minPoints);
     expect(clampPoints(15, t)).toBe(15);
   });
+  it('goal packages cover all required fields and valid target ranges', () => {
+    const { GOAL_PACKAGES } = require('@/mock/catalog');
+    expect(GOAL_PACKAGES.length).toBeGreaterThanOrEqual(4);
+    for (const pkg of GOAL_PACKAGES) {
+      expect(pkg.targetPoints).toBeGreaterThanOrEqual(100);
+      expect(pkg.targetPoints).toBeLessThanOrEqual(2000);
+      expect(pkg.titleTr.length).toBeGreaterThan(0);
+      if (pkg.m25Tr) expect(pkg.m25Tr.length).toBeGreaterThan(0);
+      if (pkg.m60Tr) expect(pkg.m60Tr.length).toBeGreaterThan(0);
+    }
+  });
+  it('suggestions by audience cover ortak, kadin_icin, and erkek_icin', () => {
+    const { SUGGESTIONS_BY_AUDIENCE } = require('@/mock/catalog');
+    expect(SUGGESTIONS_BY_AUDIENCE.ortak.m25.length).toBeGreaterThanOrEqual(1);
+    expect(SUGGESTIONS_BY_AUDIENCE.kadin_icin.m60.length).toBeGreaterThanOrEqual(1);
+    expect(SUGGESTIONS_BY_AUDIENCE.erkek_icin.m100.length).toBeGreaterThanOrEqual(1);
+  });
 });

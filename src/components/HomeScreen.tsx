@@ -3,6 +3,7 @@ import {
   FlatList,
   Modal,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -10,6 +11,7 @@ import {
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import {
+  getPersonalGoal,
   historyActivities,
   incomingRequests,
   outgoingRequests,
@@ -21,19 +23,21 @@ import {
 import { calculateStreak, type Milestone } from '@/lib/progress';
 import {
   CATEGORIES,
-  REWARD_TEMPLATES,
+  GOAL_PACKAGES,
+  SUGGESTIONS_BY_AUDIENCE,
   TASK_TEMPLATES,
   clampPoints,
-  findReward,
   findTemplate,
-  rewardTitle,
   templateTitle,
+  type GoalPackage,
+  type RewardAudience,
   type TaskCategory,
   type TaskTemplate,
 } from '@/mock/catalog';
 import { t, type Lang } from '@/i18n/strings';
 import { BouncyPressable } from './game/BouncyPressable';
 import { GamifiedProgressBar } from './game/GamifiedProgressBar';
+import { PersonalGoalCard } from './game/PersonalGoalCard';
 import { StreakBadge } from './game/StreakBadge';
 import { TaskCard } from './game/TaskCard';
 import { CelebrationOverlay } from './game/CelebrationOverlay';
@@ -47,8 +51,8 @@ export function HomeScreen({ lang }: { lang: Lang }) {
     setActor,
     activeGoal,
     customTemplates,
-    customRewards,
     taskPointOverrides,
+    personalGoals,
     activities,
     claimTask,
     requestTask,
@@ -59,8 +63,13 @@ export function HomeScreen({ lang }: { lang: Lang }) {
     appreciate,
     startNewGoal,
     updateActiveGoal,
+    updatePersonalGoal,
     adjustTargetPoints,
     updateTaskPoints,
+    pendingGoalProposal,
+    proposeGoal,
+    acceptGoalProposal,
+    rejectGoalProposal,
   } = useBizde();
 
   const [taskModal, setTaskModal] = useState(false);
@@ -72,15 +81,26 @@ export function HomeScreen({ lang }: { lang: Lang }) {
   const [adjust, setAdjust] = useState<Record<string, string>>({});
   const [goalModal, setGoalModal] = useState(false);
   const [goalModalMode, setGoalModalMode] = useState<'edit' | 'new'>('new');
+  const [editingGoalTarget, setEditingGoalTarget] = useState<'common' | string>('common');
   const [goalTitle, setGoalTitle] = useState('');
   const [goalTarget, setGoalTarget] = useState('400');
   const [m25Title, setM25Title] = useState('Kahve Kaçamağı');
   const [m60Title, setM60Title] = useState('Film Gecesi');
+  const [suggestionAudience, setSuggestionAudience] = useState<RewardAudience>('ortak');
   const [selectedMilestone, setSelectedMilestone] = useState<Milestone | null>(null);
   const [editingTask, setEditingTask] = useState<TaskTemplate | null>(null);
   const [editingTaskPoints, setEditingTaskPoints] = useState('');
   const [error, setError] = useState('');
   const [celebratedGoal, setCelebratedGoal] = useState(false);
+  const [proposalFeedback, setProposalFeedback] = useState('');
+
+  const applyGoalPackage = (pkg: GoalPackage) => {
+    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setGoalTitle(lang === 'tr' ? pkg.titleTr : pkg.titleEn);
+    setGoalTarget(String(pkg.targetPoints));
+    setM25Title((lang === 'tr' ? pkg.m25Tr : pkg.m25En) || '');
+    setM60Title((lang === 'tr' ? pkg.m60Tr : pkg.m60En) || '');
+  };
 
   const total = totalPoints(activities);
   const target = activeGoal.targetPoints;
@@ -91,13 +111,16 @@ export function HomeScreen({ lang }: { lang: Lang }) {
   const outgoing = outgoingRequests(activities, actor);
   const history = historyActivities(activities);
   const allTemplates: TaskTemplate[] = [...TASK_TEMPLATES, ...customTemplates];
-  const allRewards = [...REWARD_TEMPLATES, ...customRewards];
-  const activeReward = findReward(activeGoal.rewardId, customRewards);
   const streak = calculateStreak(activities);
 
   const partnerName =
     members.find((m) => m !== actor) ??
     (members[0] === actor ? members[1] ?? 'Partner' : members[0] ?? 'Partner');
+
+  const maleMember: string = members[0] ?? actor ?? 'Erkek';
+  const femaleMember: string = members[1] ?? partnerName ?? 'Kadın';
+  const maleGoal = getPersonalGoal(personalGoals, maleMember, members);
+  const femaleGoal = getPersonalGoal(personalGoals, femaleMember, members);
 
   // Trigger celebration modal once when target is reached
   useEffect(() => {
@@ -119,21 +142,38 @@ export function HomeScreen({ lang }: { lang: Lang }) {
   };
 
   const openEditGoalModal = () => {
+    setEditingGoalTarget('common');
     setGoalModalMode('edit');
     setGoalTitle(activeGoal.title);
     setGoalTarget(String(activeGoal.targetPoints));
     setM25Title(activeGoal.m25Title || 'Kahve Kaçamağı');
     setM60Title(activeGoal.m60Title || 'Film Gecesi');
+    setSuggestionAudience('ortak');
+    setError('');
+    setGoalModal(true);
+  };
+
+  const openEditPersonalGoalModal = (member: string, isFemale: boolean) => {
+    const goal = getPersonalGoal(personalGoals, member, members);
+    setEditingGoalTarget(member);
+    setGoalModalMode('edit');
+    setGoalTitle(goal.title);
+    setGoalTarget(String(goal.targetPoints));
+    setM25Title(goal.m25Title || '');
+    setM60Title(goal.m60Title || '');
+    setSuggestionAudience(isFemale ? 'kadin_icin' : 'erkek_icin');
     setError('');
     setGoalModal(true);
   };
 
   const openNewGoalModal = () => {
+    setEditingGoalTarget('common');
     setGoalModalMode('new');
     setGoalTitle('');
     setGoalTarget('400');
     setM25Title('Kahve Kaçamağı');
     setM60Title('Film Gecesi');
+    setSuggestionAudience('ortak');
     setError('');
     setGoalModal(true);
   };
@@ -184,23 +224,60 @@ export function HomeScreen({ lang }: { lang: Lang }) {
 
   const saveGoal = () => {
     const pts = Number(goalTarget);
-    if (!goalTitle.trim() || !Number.isInteger(pts) || pts < 100 || pts > 2000) {
-      setError(t(lang, 'home.badPoints'));
+    const minPts = editingGoalTarget === 'common' ? 150 : 100;
+    if (!goalTitle.trim() || !Number.isInteger(pts) || pts < minPts || pts > 2000) {
+      setError(
+        editingGoalTarget === 'common'
+          ? (lang === 'tr' ? 'Ortak hedef 150 - 2000 puan arasında olmalıdır.' : 'Common goal must be 150 - 2000 points.')
+          : (lang === 'tr' ? 'Kişisel hedef 100 - 2000 puan arasında olmalıdır.' : 'Personal goal must be 100 - 2000 points.')
+      );
       return;
     }
-    if (goalModalMode === 'edit') {
-      const ok = updateActiveGoal(goalTitle, pts, m25Title, m60Title);
+
+    if (members.length >= 2) {
+      const ok = proposeGoal(
+        editingGoalTarget,
+        goalTitle,
+        pts,
+        editingGoalTarget === 'common' ? m25Title : undefined,
+        editingGoalTarget === 'common' ? m60Title : undefined,
+        editingGoalTarget !== 'common' ? editingGoalTarget : undefined
+      );
       if (!ok) {
         setError(t(lang, 'home.badPoints'));
         return;
+      }
+      setGoalModal(false);
+      setError('');
+      setProposalFeedback(
+        lang === 'tr'
+          ? '🎯 Hedef teklifi eşine iletildi! Karşılıklı mutabakat bekleniyor.'
+          : '🎯 Goal proposal sent to partner! Awaiting mutual approval.'
+      );
+      return;
+    }
+
+    if (editingGoalTarget === 'common') {
+      if (goalModalMode === 'edit') {
+        const ok = updateActiveGoal(goalTitle, pts, m25Title, m60Title);
+        if (!ok) {
+          setError(t(lang, 'home.badPoints'));
+          return;
+        }
+      } else {
+        const ok = startNewGoal(goalTitle, pts, m25Title, m60Title);
+        if (!ok) {
+          setError(t(lang, 'home.badPoints'));
+          return;
+        }
+        setCelebratedGoal(false);
       }
     } else {
-      const ok = startNewGoal(goalTitle, pts, m25Title, m60Title);
+      const ok = updatePersonalGoal(editingGoalTarget, goalTitle, pts, m25Title, m60Title);
       if (!ok) {
         setError(t(lang, 'home.badPoints'));
         return;
       }
-      setCelebratedGoal(false);
     }
     setError('');
     setGoalModal(false);
@@ -209,7 +286,11 @@ export function HomeScreen({ lang }: { lang: Lang }) {
   const filteredTemplates = allTemplates.filter((t) => t.category === selectedCategory);
 
   return (
-    <View style={styles.box}>
+    <ScrollView
+      style={styles.scrollBox}
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+    >
       {/* Top Bar: Active player chips + Streak Flame Badge */}
       <View style={styles.headerBar}>
         <View style={styles.actorGroup}>
@@ -235,6 +316,103 @@ export function HomeScreen({ lang }: { lang: Lang }) {
         <StreakBadge streakDays={streak} label={lang === 'tr' ? 'Gün' : 'Days'} />
       </View>
 
+      {/* Mutual Goal Proposal Banner */}
+      {pendingGoalProposal && (
+        <View style={styles.proposalCard}>
+          <View style={styles.proposalHeaderRow}>
+            <Text style={styles.proposalIcon}>🤝</Text>
+            <View style={styles.proposalHeaderTextCol}>
+              <Text style={styles.proposalTitle}>
+                {lang === 'tr' ? 'Hedef Değişiklik Teklifi' : 'Goal Change Proposal'}
+              </Text>
+              <Text style={styles.proposalSubtext}>
+                {pendingGoalProposal.proposedBy}{' '}
+                {pendingGoalProposal.targetType === 'common'
+                  ? (lang === 'tr' ? 'ortak hedef için önerdi:' : 'proposed for common goal:')
+                  : (lang === 'tr'
+                      ? `${pendingGoalProposal.targetMember || ''} hedefi için önerdi:`
+                      : `proposed for ${pendingGoalProposal.targetMember || ''}'s goal:`)}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.proposalDetailsBox}>
+            <Text style={styles.proposalTargetTitle} numberOfLines={2}>
+              🏆 {pendingGoalProposal.title}
+            </Text>
+            <View style={styles.proposalBadgeRow}>
+              <Text style={styles.proposalBadgeText}>{pendingGoalProposal.targetPoints} XP</Text>
+              {pendingGoalProposal.m25Title && (
+                <Text style={styles.proposalSubBadgeText}>
+                  %25: {pendingGoalProposal.m25Title}
+                </Text>
+              )}
+            </View>
+          </View>
+
+          {actor !== pendingGoalProposal.proposedBy ? (
+            <View style={styles.proposalActionsRow}>
+              <BouncyPressable
+                variant="primary"
+                title={lang === 'tr' ? '✅ Onayla' : '✅ Accept'}
+                onPress={() => {
+                  void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                  acceptGoalProposal();
+                  setProposalFeedback(
+                    lang === 'tr'
+                      ? '🎉 Yeni hedef mutabakatla onaylandı!'
+                      : '🎉 Goal mutually approved!'
+                  );
+                }}
+                style={styles.proposalActionBtn}
+              />
+              <BouncyPressable
+                variant="ghost"
+                title={lang === 'tr' ? '❌ Reddet' : '❌ Decline'}
+                onPress={() => {
+                  void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                  rejectGoalProposal();
+                  setProposalFeedback(
+                    lang === 'tr' ? 'Hedef teklifi reddedildi.' : 'Goal proposal declined.'
+                  );
+                }}
+                style={styles.proposalActionBtn}
+              />
+            </View>
+          ) : (
+            <View style={styles.proposalWaitingRow}>
+              <Text style={styles.proposalWaitingText}>
+                ⏳ {lang === 'tr' ? 'Eşinin onayı bekleniyor...' : 'Awaiting partner approval...'}
+              </Text>
+              <Pressable
+                onPress={() => {
+                  void Haptics.selectionAsync();
+                  rejectGoalProposal();
+                  setProposalFeedback(
+                    lang === 'tr' ? 'Teklif geri çekildi.' : 'Proposal retracted.'
+                  );
+                }}
+                style={styles.proposalCancelBtn}
+              >
+                <Text style={styles.proposalCancelText}>
+                  {lang === 'tr' ? 'Geri Çek' : 'Cancel'}
+                </Text>
+              </Pressable>
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* Temporary Feedback Banner */}
+      {proposalFeedback.length > 0 && (
+        <View style={styles.feedbackBanner}>
+          <Text style={styles.feedbackBannerText}>{proposalFeedback}</Text>
+          <Pressable onPress={() => setProposalFeedback('')}>
+            <Text style={styles.feedbackCloseText}>✕</Text>
+          </Pressable>
+        </View>
+      )}
+
       {/* Goal Title & Journey */}
       <View style={styles.goalHeader}>
         <View style={styles.goalRow}>
@@ -246,9 +424,11 @@ export function HomeScreen({ lang }: { lang: Lang }) {
             }}
             style={styles.editGoalBtn}
             accessibilityRole="button"
-            accessibilityLabel={t(lang, 'home.editGoal')}
+            accessibilityLabel={lang === 'tr' ? 'Ortak Hedefi Düzenle' : 'Edit Common Goal'}
           >
-            <Text style={styles.editGoalBtnText}>✏️ {t(lang, 'home.editGoal')}</Text>
+            <Text style={styles.editGoalBtnText}>
+              ✏️ {lang === 'tr' ? 'Ortak Hedefi Düzenle' : 'Edit Common Goal'}
+            </Text>
           </Pressable>
         </View>
 
@@ -272,9 +452,9 @@ export function HomeScreen({ lang }: { lang: Lang }) {
       <GamifiedProgressBar
         total={total}
         target={target}
-        member1Name={members[0] ?? 'Partner 1'}
+        member1Name={maleMember}
         member1Points={n1 ?? 0}
-        member2Name={members[1] ?? 'Partner 2'}
+        member2Name={femaleMember}
         member2Points={n2 ?? 0}
         color1={BAR_COLORS[0]}
         color2={BAR_COLORS[1]}
@@ -282,6 +462,24 @@ export function HomeScreen({ lang }: { lang: Lang }) {
         onAdjustTarget={(delta) => adjustTargetPoints(delta)}
         onEditGoal={openEditGoalModal}
       />
+
+      {/* 2 Personal Goals: Kadının Hedefi & Erkeğin Hedefi */}
+      <View style={styles.personalGoalsSection}>
+        <PersonalGoalCard
+          member={femaleMember}
+          isFemale={true}
+          points={n2 ?? 0}
+          goal={femaleGoal}
+          onEdit={() => openEditPersonalGoalModal(femaleMember, true)}
+        />
+        <PersonalGoalCard
+          member={maleMember}
+          isFemale={false}
+          points={n1 ?? 0}
+          goal={maleGoal}
+          onEdit={() => openEditPersonalGoalModal(maleMember, false)}
+        />
+      </View>
 
       {/* Primary Action Buttons: Add Task & Appreciation */}
       <View style={styles.actionRow}>
@@ -378,14 +576,11 @@ export function HomeScreen({ lang }: { lang: Lang }) {
           <Text style={styles.emptyText}>{t(lang, 'home.emptyPending')}</Text>
         </View>
       ) : (
-        <FlatList
-          data={pending}
-          keyExtractor={(a) => a.id}
-          style={styles.pendingList}
-          renderItem={({ item }) => {
+        <View style={styles.pendingList}>
+          {pending.map((item) => {
             const isMyClaim = item.claimedBy === actor;
             return (
-              <View style={styles.pendingCard}>
+              <View key={item.id} style={styles.pendingCard}>
                 <View style={styles.pendingLeft}>
                   <Text style={styles.pendingClaimer}>
                     {isMyClaim ? `👤 Sen (${item.claimedBy})` : `👤 ${item.claimedBy}`}
@@ -431,8 +626,8 @@ export function HomeScreen({ lang }: { lang: Lang }) {
                 )}
               </View>
             );
-          }}
-        />
+          })}
+        </View>
       )}
 
       {/* History Section */}
@@ -442,14 +637,11 @@ export function HomeScreen({ lang }: { lang: Lang }) {
           <Text style={styles.emptyText}>{t(lang, 'home.empty')}</Text>
         </View>
       ) : (
-        <FlatList
-          data={history}
-          keyExtractor={(a) => a.id}
-          style={styles.historyList}
-          renderItem={({ item }) => {
+        <View style={styles.historyList}>
+          {history.map((item) => {
             const isApproved = item.status === 'approved';
             return (
-              <View style={[styles.historyCard, !isApproved && styles.historyRejectedCard]}>
+              <View key={item.id} style={[styles.historyCard, !isApproved && styles.historyRejectedCard]}>
                 <View style={styles.historyRow}>
                   <Text style={styles.historyName}>{item.claimedBy}</Text>
                   <Text style={[styles.historyItemTitle, !isApproved && styles.rejectedText]}>
@@ -473,8 +665,8 @@ export function HomeScreen({ lang }: { lang: Lang }) {
                 </View>
               </View>
             );
-          }}
-        />
+          })}
+        </View>
       )}
 
       {/* Task Picker Modal (with Hybrid Switch: Ben Yaptım vs Partnerime İste) */}
@@ -602,9 +794,13 @@ export function HomeScreen({ lang }: { lang: Lang }) {
           <View style={styles.sheetContainer}>
             <View style={styles.sheetHeader}>
               <Text style={styles.sheetTitle}>
-                {goalModalMode === 'edit'
-                  ? `✏️ ${t(lang, 'home.editGoal')}`
-                  : `🏆 ${t(lang, 'home.newGoal')}`}
+                {editingGoalTarget === 'common'
+                  ? (goalModalMode === 'edit'
+                      ? (lang === 'tr' ? '✏️ Ortak Hedefi Düzenle' : '✏️ Edit Common Goal')
+                      : (lang === 'tr' ? '🏆 Yeni Ortak Hedef' : '🏆 New Common Goal'))
+                  : (editingGoalTarget === femaleMember
+                      ? `🍷 ${femaleMember}'nin Hedefi`
+                      : `🎮 ${maleMember}'nin Hedefi`)}
               </Text>
               <BouncyPressable
                 variant="ghost"
@@ -617,8 +813,59 @@ export function HomeScreen({ lang }: { lang: Lang }) {
               />
             </View>
 
-            <View style={styles.goalFormContent}>
-              <Text style={styles.inputLabel}>{t(lang, 'home.goal')}</Text>
+            <ScrollView
+              style={styles.goalModalScroll}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.goalFormContent}
+            >
+              {/* Ready-made Goal Packages - Filtered by Target */}
+              <Text style={styles.pkgSectionTitle}>🎁 Hazır Hedef Paketleri (Tek Tıkla Yükle)</Text>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.pkgScrollRow}
+              >
+                {GOAL_PACKAGES.filter((pkg) => {
+                  if (editingGoalTarget === femaleMember) return pkg.audience === 'kadin_icin';
+                  if (editingGoalTarget === maleMember) return pkg.audience === 'erkek_icin';
+                  return pkg.audience === 'ortak';
+                }).map((pkg) => {
+                  const title = lang === 'tr' ? pkg.titleTr : pkg.titleEn;
+                  const isSelected = goalTitle === title;
+                  return (
+                    <Pressable
+                      key={pkg.id}
+                      onPress={() => applyGoalPackage(pkg)}
+                      style={[
+                        styles.pkgCard,
+                        isSelected && styles.pkgCardSelected,
+                      ]}
+                      accessibilityRole="button"
+                      accessibilityLabel={title}
+                    >
+                      <Text style={styles.pkgBadge}>{pkg.badge}</Text>
+                      <View style={styles.pkgInfo}>
+                        <Text
+                          style={[styles.pkgTitle, isSelected && styles.pkgTitleSelected]}
+                          numberOfLines={1}
+                        >
+                          {title}
+                        </Text>
+                        <Text style={styles.pkgTargetText}>{pkg.targetPoints} XP</Text>
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
+
+              {/* Goal Title Input + Quick Suggestions */}
+              <Text style={styles.inputLabel}>
+                {editingGoalTarget === 'common'
+                  ? `🏆 ${t(lang, 'home.goal')} (Büyük Ödül - %100)`
+                  : (editingGoalTarget === femaleMember
+                      ? `🍷 ${femaleMember}'nin Büyük Hedefi`
+                      : `🎮 ${maleMember}'nin Büyük Hedefi`)}
+              </Text>
               <TextInput
                 style={styles.input}
                 placeholder={t(lang, 'home.goalTitlePlaceholder')}
@@ -626,13 +873,41 @@ export function HomeScreen({ lang }: { lang: Lang }) {
                 value={goalTitle}
                 onChangeText={setGoalTitle}
               />
+              {/* Quick Suggestions */}
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.suggestionChipsRow}
+              >
+                {SUGGESTIONS_BY_AUDIENCE[suggestionAudience].m100.map((sug, i) => {
+                  const text = lang === 'tr' ? sug.tr : sug.en;
+                  return (
+                    <Pressable
+                      key={i}
+                      onPress={() => {
+                        void Haptics.selectionAsync();
+                        setGoalTitle(text);
+                      }}
+                      style={styles.suggestionChip}
+                    >
+                      <Text style={styles.suggestionChipText}>+ {text}</Text>
+                    </Pressable>
+                  );
+                })}
+              </ScrollView>
 
-              <Text style={styles.inputLabel}>{t(lang, 'home.goalTargetPlaceholder')} (100 - 2000 XP)</Text>
+              {/* Target XP Input & Presets */}
+              <Text style={styles.inputLabel}>
+                {editingGoalTarget === 'common'
+                  ? (lang === 'tr' ? '🎯 Ortak Hedef Puanı (150 - 2000 XP)' : '🎯 Common Goal Points (150 - 2000 XP)')
+                  : (lang === 'tr' ? '🎯 Kişisel Hedef Puanı (100 - 2000 XP)' : '🎯 Personal Goal Points (100 - 2000 XP)')}
+              </Text>
               <View style={styles.goalTargetRow}>
                 <Pressable
                   onPress={() => {
                     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    const n = Math.max(100, (Number(goalTarget) || 400) - 50);
+                    const minAllowed = editingGoalTarget === 'common' ? 150 : 100;
+                    const n = Math.max(minAllowed, (Number(goalTarget) || 200) - 50);
                     setGoalTarget(String(n));
                   }}
                   style={styles.stepperBigBtn}
@@ -652,7 +927,7 @@ export function HomeScreen({ lang }: { lang: Lang }) {
                 <Pressable
                   onPress={() => {
                     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    const n = Math.min(2000, (Number(goalTarget) || 400) + 50);
+                    const n = Math.min(2000, (Number(goalTarget) || 200) + 50);
                     setGoalTarget(String(n));
                   }}
                   style={styles.stepperBigBtn}
@@ -664,7 +939,7 @@ export function HomeScreen({ lang }: { lang: Lang }) {
               </View>
 
               <View style={styles.xpPresetRow}>
-                {[200, 400, 800, 1200].map((xp) => (
+                {(editingGoalTarget === 'common' ? [150, 250, 400, 600] : [100, 150, 200, 300]).map((xp) => (
                   <Pressable
                     key={xp}
                     onPress={() => {
@@ -688,33 +963,82 @@ export function HomeScreen({ lang }: { lang: Lang }) {
                 ))}
               </View>
 
-              {/* Ara Ödüller (Akıcılık İçin) */}
-              <Text style={styles.inputLabel}>⭐ Yoldaki Ara Ödüller (Akıcılık İçin)</Text>
-              <View style={styles.stepRewardRow}>
-                <View style={styles.stepRewardTagBox}>
-                  <Text style={styles.stepRewardTag}>%25</Text>
-                </View>
-                <TextInput
-                  style={[styles.input, styles.stepRewardInput]}
-                  placeholder="Ara Ödül (örn. Kahve Kaçamağı)"
-                  placeholderTextColor="#94a3b8"
-                  value={m25Title}
-                  onChangeText={setM25Title}
-                />
-              </View>
+              {/* Ara Ödüller (Akıcılık İçin) - Only for Common Goal */}
+              {editingGoalTarget === 'common' && (
+                <>
+                  <Text style={styles.inputLabel}>⭐ Yoldaki Ara Ödüller (Akıcılık İçin)</Text>
 
-              <View style={styles.stepRewardRow}>
-                <View style={styles.stepRewardTagBox}>
-                  <Text style={styles.stepRewardTag}>%60</Text>
-                </View>
-                <TextInput
-                  style={[styles.input, styles.stepRewardInput]}
-                  placeholder="Ara Ödül (örn. Film Gecesi)"
-                  placeholderTextColor="#94a3b8"
-                  value={m60Title}
-                  onChangeText={setM60Title}
-                />
-              </View>
+                  {/* %25 Section */}
+                  <View style={styles.stepRewardRow}>
+                    <View style={styles.stepRewardTagBox}>
+                      <Text style={styles.stepRewardTag}>%25</Text>
+                    </View>
+                    <TextInput
+                      style={[styles.input, styles.stepRewardInput]}
+                      placeholder="Ara Ödül (örn. Kahve Kaçamağı)"
+                      placeholderTextColor="#94a3b8"
+                      value={m25Title}
+                      onChangeText={setM25Title}
+                    />
+                  </View>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.suggestionChipsRow}
+                  >
+                    {SUGGESTIONS_BY_AUDIENCE[suggestionAudience].m25.map((sug, i) => {
+                      const text = lang === 'tr' ? sug.tr : sug.en;
+                      return (
+                        <Pressable
+                          key={i}
+                          onPress={() => {
+                            void Haptics.selectionAsync();
+                            setM25Title(text);
+                          }}
+                          style={styles.suggestionChip}
+                        >
+                          <Text style={styles.suggestionChipText}>+ {text}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
+
+                  {/* %60 Section */}
+                  <View style={styles.stepRewardRow}>
+                    <View style={styles.stepRewardTagBox}>
+                      <Text style={styles.stepRewardTag}>%60</Text>
+                    </View>
+                    <TextInput
+                      style={[styles.input, styles.stepRewardInput]}
+                      placeholder="Ara Ödül (örn. Film Gecesi)"
+                      placeholderTextColor="#94a3b8"
+                      value={m60Title}
+                      onChangeText={setM60Title}
+                    />
+                  </View>
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    contentContainerStyle={styles.suggestionChipsRow}
+                  >
+                    {SUGGESTIONS_BY_AUDIENCE[suggestionAudience].m60.map((sug, i) => {
+                      const text = lang === 'tr' ? sug.tr : sug.en;
+                      return (
+                        <Pressable
+                          key={i}
+                          onPress={() => {
+                            void Haptics.selectionAsync();
+                            setM60Title(text);
+                          }}
+                          style={styles.suggestionChip}
+                        >
+                          <Text style={styles.suggestionChipText}>+ {text}</Text>
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
+                </>
+              )}
 
               {error.length > 0 && <Text style={styles.error}>{error}</Text>}
 
@@ -722,14 +1046,16 @@ export function HomeScreen({ lang }: { lang: Lang }) {
                 <BouncyPressable
                   variant="amber"
                   title={
-                    goalModalMode === 'edit'
-                      ? `💾 ${t(lang, 'home.updateGoal')}`
-                      : `🚀 ${t(lang, 'home.start')}`
+                    members.length >= 2
+                      ? (lang === 'tr' ? '🤝 Eşime Onaya Gönder' : '🤝 Send for Partner Approval')
+                      : (goalModalMode === 'edit'
+                          ? `💾 ${t(lang, 'home.updateGoal')}`
+                          : `🚀 ${t(lang, 'home.start')}`)
                   }
                   onPress={saveGoal}
                   style={styles.startGoalBtn}
                 />
-                {goalModalMode === 'edit' && (
+                {editingGoalTarget === 'common' && goalModalMode === 'edit' && (
                   <BouncyPressable
                     variant="ghost"
                     title={`🔄 ${t(lang, 'home.newGoal')} (Sıfırla)`}
@@ -745,7 +1071,7 @@ export function HomeScreen({ lang }: { lang: Lang }) {
                   />
                 )}
               </View>
-            </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -931,17 +1257,27 @@ export function HomeScreen({ lang }: { lang: Lang }) {
         }}
         onClose={() => setCelebratedGoal(false)}
       />
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
+  scrollBox: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+  },
+  scrollContent: {
+    paddingHorizontal: 14,
+    paddingTop: 8,
+    paddingBottom: 64,
+    gap: 8,
+  },
   box: {
     flex: 1,
     backgroundColor: '#f8fafc',
-    gap: 12,
-    padding: 18,
-    paddingTop: 54,
+    gap: 8,
+    padding: 14,
+    paddingTop: 8,
   },
   headerBar: {
     flexDirection: 'row',
@@ -951,29 +1287,34 @@ const styles = StyleSheet.create({
   actorGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   actorLabelText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     color: '#64748b',
   },
   memberChips: {
     flexDirection: 'row',
-    gap: 6,
+    gap: 5,
   },
   chipButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    minHeight: 36,
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    minHeight: 30,
   },
   chipText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
   },
   goalHeader: {
-    gap: 4,
+    gap: 2,
+  },
+  personalGoalsSection: {
+    gap: 6,
+    marginTop: 4,
+    marginBottom: 2,
   },
   goalRow: {
     flexDirection: 'row',
@@ -984,52 +1325,56 @@ const styles = StyleSheet.create({
     backgroundColor: '#eff6ff',
     borderColor: '#bfdbfe',
     borderWidth: 1,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
     borderRadius: 8,
   },
   editGoalBtnText: {
-    fontSize: 11,
-    fontWeight: '800',
+    fontSize: 10,
+    fontWeight: '700',
     color: '#1d4ed8',
   },
   activeRewardBadge: {
     backgroundColor: '#fef3c7',
     borderColor: '#fde68a',
     borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
     alignSelf: 'flex-start',
     marginTop: 2,
     maxWidth: '100%',
   },
   activeRewardText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
     color: '#b45309',
   },
   goalSubtitle: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
     color: '#0f766e',
     textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    letterSpacing: 0.6,
   },
   goalMainTitle: {
-    fontSize: 20,
+    fontSize: 16,
     fontWeight: '800',
     color: '#0f172a',
   },
   actionRow: {
     flexDirection: 'row',
-    gap: 12,
+    gap: 8,
+    marginVertical: 2,
   },
   actionButton: {
     flex: 1,
+    minHeight: 38,
+    paddingVertical: 6,
+    borderRadius: 12,
   },
   actionText: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '800',
   },
   incomingSection: {
@@ -1163,16 +1508,16 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   pendingList: {
-    maxHeight: 150,
+    gap: 6,
   },
   pendingCard: {
     backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 12,
+    borderRadius: 12,
+    padding: 9,
     borderWidth: 1.5,
     borderColor: '#fed7aa',
-    marginBottom: 8,
-    gap: 8,
+    marginBottom: 4,
+    gap: 6,
   },
   pendingLeft: {
     flexDirection: 'row',
@@ -1180,19 +1525,19 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   pendingClaimer: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     color: '#ea580c',
   },
   pendingTaskTitle: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '700',
     color: '#1e293b',
     flex: 1,
-    marginHorizontal: 8,
+    marginHorizontal: 6,
   },
   pendingPoints: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '800',
     color: '#0f766e',
   },
@@ -1200,13 +1545,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#f8fafc',
     borderColor: '#e2e8f0',
     borderWidth: 1,
-    borderRadius: 10,
-    paddingVertical: 6,
-    paddingHorizontal: 10,
+    borderRadius: 8,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
     alignItems: 'center',
   },
   waitingText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     color: '#64748b',
   },
@@ -1214,40 +1559,40 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-end',
-    gap: 8,
+    gap: 6,
   },
   pointsInput: {
     backgroundColor: '#f1f5f9',
     borderColor: '#cbd5e1',
     borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    fontSize: 13,
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    fontSize: 12,
     fontWeight: '700',
-    width: 54,
+    width: 48,
     textAlign: 'center',
   },
   miniBtn: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 10,
-    minHeight: 34,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    minHeight: 30,
   },
   miniBtnText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '800',
   },
   historyList: {
-    flex: 1,
+    gap: 4,
   },
   historyCard: {
     backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 10,
+    borderRadius: 10,
+    padding: 8,
     borderWidth: 1,
     borderColor: '#f1f5f9',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   historyRejectedCard: {
     opacity: 0.5,
@@ -1258,16 +1603,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   historyName: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '700',
     color: '#64748b',
-    width: 60,
+    width: 55,
   },
   historyItemTitle: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: '#334155',
     flex: 1,
+    marginHorizontal: 6,
   },
   rejectedText: {
     textDecorationLine: 'line-through',
@@ -1306,9 +1652,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
-    padding: 20,
-    maxHeight: '88%',
-    gap: 12,
+    paddingTop: 16,
+    paddingHorizontal: 18,
+    paddingBottom: 24,
+    maxHeight: '94%',
+    gap: 10,
   },
   sheetHeader: {
     flexDirection: 'row',
@@ -1436,27 +1784,95 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#0f766e',
   },
+  goalModalScroll: {
+    flexShrink: 1,
+  },
+  pkgSectionTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0f172a',
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  pkgScrollRow: {
+    gap: 8,
+    paddingVertical: 4,
+  },
+  pkgCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 14,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1.5,
+    borderColor: '#e2e8f0',
+  },
+  pkgCardSelected: {
+    backgroundColor: '#f0fdf4',
+    borderColor: '#10b981',
+  },
+  pkgBadge: {
+    fontSize: 20,
+  },
+  pkgInfo: {
+    gap: 2,
+  },
+  pkgTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#1e293b',
+  },
+  pkgTitleSelected: {
+    color: '#047857',
+  },
+  pkgTargetText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748b',
+  },
+  suggestionChipsRow: {
+    gap: 6,
+    paddingVertical: 4,
+    marginBottom: 4,
+  },
+  suggestionChip: {
+    backgroundColor: '#f1f5f9',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
+  suggestionChipText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#334155',
+  },
   goalActions: {
-    marginTop: 16,
-    marginBottom: 20,
+    marginTop: 10,
+    marginBottom: 16,
+    gap: 8,
   },
   startGoalBtn: {
     width: '100%',
   },
   goalFormContent: {
     gap: 8,
+    paddingBottom: 36,
   },
   goalTargetRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 12,
-    marginVertical: 4,
+    marginVertical: 2,
   },
   stepperBigBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: '#f1f5f9',
     borderWidth: 1.5,
     borderColor: '#cbd5e1',
@@ -1464,19 +1880,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   stepperBigText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '900',
     color: '#0f766e',
   },
   goalTargetInput: {
-    width: 100,
-    height: 44,
+    width: 88,
+    height: 40,
     backgroundColor: '#f8fafc',
     borderColor: '#0f766e',
     borderWidth: 2,
     borderRadius: 12,
     textAlign: 'center',
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '900',
     color: '#0f172a',
   },
@@ -1719,5 +2135,130 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
     marginTop: 8,
+  },
+  proposalCard: {
+    backgroundColor: '#fefce8',
+    borderRadius: 18,
+    borderWidth: 1.5,
+    borderColor: '#facc15',
+    padding: 14,
+    marginBottom: 12,
+    gap: 10,
+    shadowColor: '#ca8a04',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  proposalHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  proposalIcon: {
+    fontSize: 24,
+  },
+  proposalHeaderTextCol: {
+    flex: 1,
+    gap: 2,
+  },
+  proposalTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#854d0e',
+  },
+  proposalSubtext: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#a16207',
+  },
+  proposalDetailsBox: {
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: '#fef08a',
+    gap: 6,
+  },
+  proposalTargetTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#1e293b',
+  },
+  proposalBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flexWrap: 'wrap',
+  },
+  proposalBadgeText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#d97706',
+    backgroundColor: '#fef3c7',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+  },
+  proposalSubBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  proposalActionsRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  proposalActionBtn: {
+    flex: 1,
+    minHeight: 40,
+    paddingVertical: 8,
+  },
+  proposalWaitingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+  },
+  proposalWaitingText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#b45309',
+    flex: 1,
+  },
+  proposalCancelBtn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: '#fee2e2',
+  },
+  proposalCancelText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#dc2626',
+  },
+  feedbackBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#f0fdf4',
+    borderColor: '#86efac',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 10,
+  },
+  feedbackBannerText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#166534',
+    flex: 1,
+  },
+  feedbackCloseText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#166534',
+    paddingLeft: 8,
   },
 });
