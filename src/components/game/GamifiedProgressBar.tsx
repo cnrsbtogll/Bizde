@@ -1,5 +1,12 @@
 import { useEffect } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type DimensionValue,
+  type ViewStyle,
+} from 'react-native';
 import * as Haptics from 'expo-haptics';
 import Animated, {
   useSharedValue,
@@ -132,6 +139,13 @@ export function GamifiedProgressBar({
         {/* Milestone Node Pins */}
         {MILESTONES.map((m) => {
           const isReached = percentage >= m.pct;
+          const pinPositionStyle: ViewStyle =
+            m.pct === 100
+              ? { right: -2, marginLeft: 0 }
+              : m.pct === 0
+                ? { left: -2, marginLeft: 0 }
+                : { left: `${m.pct}%` as DimensionValue, marginLeft: -18 };
+
           return (
             <Pressable
               key={m.pct}
@@ -139,10 +153,7 @@ export function GamifiedProgressBar({
                 void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
                 onMilestonePress?.(m);
               }}
-              style={[
-                styles.pinContainer,
-                { left: `${m.pct}%` },
-              ]}
+              style={[styles.pinContainer, pinPositionStyle]}
               accessibilityRole="button"
               accessibilityLabel={`Kademe %${m.pct}`}
             >
@@ -154,7 +165,10 @@ export function GamifiedProgressBar({
               >
                 <Text style={styles.pinIcon}>{isReached ? '★' : '•'}</Text>
               </View>
-              <Text style={[styles.pinPctLabel, isReached && styles.pinPctLabelReached]}>
+              <Text
+                numberOfLines={1}
+                style={[styles.pinPctLabel, isReached && styles.pinPctLabelReached]}
+              >
                 %{m.pct}
               </Text>
             </Pressable>
@@ -254,7 +268,7 @@ const styles = StyleSheet.create({
     overflow: 'visible',
     position: 'relative',
     justifyContent: 'center',
-    marginBottom: 6,
+    marginBottom: 20,
   },
   filledTrack: {
     height: '100%',
@@ -268,8 +282,7 @@ const styles = StyleSheet.create({
   pinContainer: {
     position: 'absolute',
     top: -3,
-    marginLeft: -14,
-    width: 28,
+    width: 36,
     alignItems: 'center',
     zIndex: 10,
   },
@@ -303,6 +316,8 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#94a3b8',
     marginTop: 2,
+    textAlign: 'center',
+    width: 36,
   },
   pinPctLabelReached: {
     color: '#b45309',

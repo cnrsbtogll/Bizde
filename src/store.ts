@@ -24,7 +24,10 @@ export interface Activity {
 export interface Goal {
   title: string;
   targetPoints: number;
-  rewardId: string;
+  m25Title?: string;
+  m60Title?: string;
+  rewardTitle?: string;
+  rewardId?: string;
 }
 
 export interface FinishedGoal extends Goal {
@@ -58,20 +61,21 @@ interface BizdeState {
   addCustomTemplate: (title: string, points: number, category: TaskTemplate['category']) => string | null;
   addCustomReward: (title: string, thresholdPct?: number) => string | null;
   taskPointOverrides: Record<string, number>;
-  updateActiveGoal: (title: string, targetPoints: number, rewardId: string) => boolean;
+  updateActiveGoal: (title: string, targetPoints: number, m25Title?: string, m60Title?: string) => boolean;
   adjustTargetPoints: (delta: number) => number;
   updateTaskPoints: (templateId: string, points: number) => boolean;
   approveActivity: (id: string, finalPoints?: number) => boolean;
   rejectActivity: (id: string) => boolean;
   appreciate: () => void;
-  startNewGoal: (title: string, targetPoints: number, rewardId: string) => boolean;
+  startNewGoal: (title: string, targetPoints: number, m25Title?: string, m60Title?: string) => boolean;
   reset: () => void;
 }
 
 const DEFAULT_GOAL: Goal = {
   title: 'Bu ay birlikte vakit geçirelim',
   targetPoints: 400,
-  rewardId: 'r100-restoran',
+  m25Title: 'Kahve Kaçamağı',
+  m60Title: 'Film Gecesi',
 };
 
 // ponytail: tek cihazda 2 oyuncu simülasyonu; Firestore sync aynı
@@ -239,14 +243,17 @@ export const useBizde = create<BizdeState>()((set, get) => ({
     return r.id;
   },
 
-  updateActiveGoal: (title, targetPoints, rewardId) => {
+  updateActiveGoal: (title, targetPoints, m25Title, m60Title) => {
     const clean = title.trim();
     if (!clean || !Number.isInteger(targetPoints) || targetPoints < 100 || targetPoints > 2000) return false;
     set({
       activeGoal: {
+        ...get().activeGoal,
         title: clean,
         targetPoints,
-        rewardId,
+        m25Title: m25Title?.trim() || get().activeGoal.m25Title || 'Kahve Kaçamağı',
+        m60Title: m60Title?.trim() || get().activeGoal.m60Title || 'Film Gecesi',
+        rewardTitle: clean,
       },
     });
     return true;
@@ -339,14 +346,20 @@ export const useBizde = create<BizdeState>()((set, get) => ({
     set({ activities: [activity, ...get().activities] });
   },
 
-  startNewGoal: (title, targetPoints, rewardId) => {
+  startNewGoal: (title, targetPoints, m25Title, m60Title) => {
     const clean = title.trim();
     if (!clean || !Number.isInteger(targetPoints) || targetPoints < 100 || targetPoints > 2000) return false;
     const { activeGoal, activities } = get();
     const total = totalPoints(activities);
     set({
       pastGoals: [...get().pastGoals, { ...activeGoal, total, finishedAt: Date.now() }],
-      activeGoal: { title: clean, targetPoints, rewardId },
+      activeGoal: {
+        title: clean,
+        targetPoints,
+        m25Title: m25Title?.trim() || 'Kahve Kaçamağı',
+        m60Title: m60Title?.trim() || 'Film Gecesi',
+        rewardTitle: clean,
+      },
       activities: [],
     });
     return true;

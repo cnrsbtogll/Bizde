@@ -3,7 +3,6 @@ import {
   FlatList,
   Modal,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -55,7 +54,6 @@ export function HomeScreen({ lang }: { lang: Lang }) {
     requestTask,
     completeRequestedTask,
     addCustomTemplate,
-    addCustomReward,
     approveActivity,
     rejectActivity,
     appreciate,
@@ -75,10 +73,9 @@ export function HomeScreen({ lang }: { lang: Lang }) {
   const [goalModal, setGoalModal] = useState(false);
   const [goalModalMode, setGoalModalMode] = useState<'edit' | 'new'>('new');
   const [goalTitle, setGoalTitle] = useState('');
-  const [goalTarget, setGoalTarget] = useState('');
-  const [rewardId, setRewardId] = useState(REWARD_TEMPLATES[0]?.id ?? '');
-  const [customRewardTitle, setCustomRewardTitle] = useState('');
-  const [customRewardPct, setCustomRewardPct] = useState(100);
+  const [goalTarget, setGoalTarget] = useState('400');
+  const [m25Title, setM25Title] = useState('Kahve Kaçamağı');
+  const [m60Title, setM60Title] = useState('Film Gecesi');
   const [selectedMilestone, setSelectedMilestone] = useState<Milestone | null>(null);
   const [editingTask, setEditingTask] = useState<TaskTemplate | null>(null);
   const [editingTaskPoints, setEditingTaskPoints] = useState('');
@@ -125,7 +122,8 @@ export function HomeScreen({ lang }: { lang: Lang }) {
     setGoalModalMode('edit');
     setGoalTitle(activeGoal.title);
     setGoalTarget(String(activeGoal.targetPoints));
-    setRewardId(activeGoal.rewardId ?? REWARD_TEMPLATES[0]?.id ?? '');
+    setM25Title(activeGoal.m25Title || 'Kahve Kaçamağı');
+    setM60Title(activeGoal.m60Title || 'Film Gecesi');
     setError('');
     setGoalModal(true);
   };
@@ -133,8 +131,9 @@ export function HomeScreen({ lang }: { lang: Lang }) {
   const openNewGoalModal = () => {
     setGoalModalMode('new');
     setGoalTitle('');
-    setGoalTarget('');
-    setRewardId(REWARD_TEMPLATES[0]?.id ?? '');
+    setGoalTarget('400');
+    setM25Title('Kahve Kaçamağı');
+    setM60Title('Film Gecesi');
     setError('');
     setGoalModal(true);
   };
@@ -173,16 +172,6 @@ export function HomeScreen({ lang }: { lang: Lang }) {
     if (tpl) handleTaskAction(tpl);
   };
 
-  const saveCustomReward = () => {
-    const clean = customRewardTitle.trim();
-    if (!clean) return;
-    const id = addCustomReward(clean, customRewardPct);
-    if (id) {
-      setRewardId(id);
-      setCustomRewardTitle('');
-    }
-  };
-
   const approve = (id: string, fallback: number, templateId?: string) => {
     const raw = adjust[id];
     const tpl = templateId ? findTemplate(templateId, customTemplates) : undefined;
@@ -200,13 +189,13 @@ export function HomeScreen({ lang }: { lang: Lang }) {
       return;
     }
     if (goalModalMode === 'edit') {
-      const ok = updateActiveGoal(goalTitle, pts, rewardId);
+      const ok = updateActiveGoal(goalTitle, pts, m25Title, m60Title);
       if (!ok) {
         setError(t(lang, 'home.badPoints'));
         return;
       }
     } else {
-      const ok = startNewGoal(goalTitle, pts, rewardId);
+      const ok = startNewGoal(goalTitle, pts, m25Title, m60Title);
       if (!ok) {
         setError(t(lang, 'home.badPoints'));
         return;
@@ -214,9 +203,6 @@ export function HomeScreen({ lang }: { lang: Lang }) {
       setCelebratedGoal(false);
     }
     setError('');
-    setGoalTitle('');
-    setGoalTarget('');
-    setCustomRewardTitle('');
     setGoalModal(false);
   };
 
@@ -249,32 +235,37 @@ export function HomeScreen({ lang }: { lang: Lang }) {
         <StreakBadge streakDays={streak} label={lang === 'tr' ? 'Gün' : 'Days'} />
       </View>
 
-      {/* Goal Title & Reward */}
+      {/* Goal Title & Journey */}
       <View style={styles.goalHeader}>
         <View style={styles.goalRow}>
           <Text style={styles.goalSubtitle}>{t(lang, 'home.goal')}</Text>
-          <View style={styles.goalRowActions}>
-            <Pressable
-              onPress={() => {
-                void Haptics.selectionAsync();
-                openEditGoalModal();
-              }}
-              style={styles.editGoalBtn}
-              accessibilityRole="button"
-              accessibilityLabel={t(lang, 'home.editGoal')}
-            >
-              <Text style={styles.editGoalBtnText}>✏️ {t(lang, 'home.editGoal')}</Text>
-            </Pressable>
-            {activeReward && (
-              <View style={styles.activeRewardBadge}>
-                <Text style={styles.activeRewardText}>
-                  🎁 {rewardTitle(activeReward, lang)} (%{activeReward.thresholdPct})
-                </Text>
-              </View>
-            )}
+          <Pressable
+            onPress={() => {
+              void Haptics.selectionAsync();
+              openEditGoalModal();
+            }}
+            style={styles.editGoalBtn}
+            accessibilityRole="button"
+            accessibilityLabel={t(lang, 'home.editGoal')}
+          >
+            <Text style={styles.editGoalBtnText}>✏️ {t(lang, 'home.editGoal')}</Text>
+          </Pressable>
+        </View>
+
+        <Text style={styles.goalMainTitle}>🏆 {activeGoal.title}</Text>
+
+        <View style={styles.milestonesMiniRow}>
+          <View style={styles.miniMilestonePill}>
+            <Text style={styles.miniMilestoneText}>
+              ☕ %25: {activeGoal.m25Title || 'Kahve Kaçamağı'}
+            </Text>
+          </View>
+          <View style={styles.miniMilestonePill}>
+            <Text style={styles.miniMilestoneText}>
+              🎬 %60: {activeGoal.m60Title || 'Film Gecesi'}
+            </Text>
           </View>
         </View>
-        <Text style={styles.goalMainTitle}>{activeGoal.title}</Text>
       </View>
 
       {/* Gamified XP Progress Bar with Spring Animation */}
@@ -626,7 +617,7 @@ export function HomeScreen({ lang }: { lang: Lang }) {
               />
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <View style={styles.goalFormContent}>
               <Text style={styles.inputLabel}>{t(lang, 'home.goal')}</Text>
               <TextInput
                 style={styles.input}
@@ -636,65 +627,93 @@ export function HomeScreen({ lang }: { lang: Lang }) {
                 onChangeText={setGoalTitle}
               />
 
-              <Text style={styles.inputLabel}>{t(lang, 'home.goalTargetPlaceholder')}</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="400"
-                placeholderTextColor="#94a3b8"
-                keyboardType="number-pad"
-                value={goalTarget}
-                onChangeText={setGoalTarget}
-              />
+              <Text style={styles.inputLabel}>{t(lang, 'home.goalTargetPlaceholder')} (100 - 2000 XP)</Text>
+              <View style={styles.goalTargetRow}>
+                <Pressable
+                  onPress={() => {
+                    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    const n = Math.max(100, (Number(goalTarget) || 400) - 50);
+                    setGoalTarget(String(n));
+                  }}
+                  style={styles.stepperBigBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="50 XP Azalt"
+                >
+                  <Text style={styles.stepperBigText}>-50</Text>
+                </Pressable>
 
-              <Text style={styles.inputLabel}>{t(lang, 'home.rewardLabel')}</Text>
-              {allRewards.map((r) => {
-                const isSelected = rewardId === r.id;
-                return (
-                  <BouncyPressable
-                    key={r.id}
-                    variant={isSelected ? 'secondary' : 'ghost'}
-                    onPress={() => setRewardId(r.id)}
-                    style={styles.rewardCard}
-                  >
-                    <Text style={styles.rewardEmoji}>{r.custom ? '🌟' : '🎁'}</Text>
-                    <Text style={styles.rewardTitleText}>
-                      {rewardTitle(r, lang)} (%{r.thresholdPct}) {r.custom ? '★' : ''}
-                    </Text>
-                    <Text style={styles.rewardCheck}>{isSelected ? '✓' : ''}</Text>
-                  </BouncyPressable>
-                );
-              })}
-
-              {/* Custom Reward Creator */}
-              <View style={styles.customRewardBox}>
-                <Text style={styles.customHeading}>✨ {t(lang, 'home.customRewardTitle')}</Text>
                 <TextInput
-                  style={styles.input}
-                  placeholder={t(lang, 'home.rewardPlaceholder')}
-                  placeholderTextColor="#94a3b8"
-                  value={customRewardTitle}
-                  onChangeText={setCustomRewardTitle}
+                  style={styles.goalTargetInput}
+                  value={goalTarget}
+                  onChangeText={setGoalTarget}
+                  keyboardType="number-pad"
                 />
-                <View style={styles.customRewardBottomRow}>
-                  <View style={styles.pctChipsGroup}>
-                    {[25, 60, 100].map((pct) => (
-                      <BouncyPressable
-                        key={pct}
-                        title={`%${pct}`}
-                        variant={customRewardPct === pct ? 'secondary' : 'ghost'}
-                        onPress={() => setCustomRewardPct(pct)}
-                        style={styles.categoryChip}
-                        textStyle={styles.categoryChipText}
-                      />
-                    ))}
-                  </View>
-                  <BouncyPressable
-                    variant="primary"
-                    title={t(lang, 'home.addReward')}
-                    onPress={saveCustomReward}
-                    style={styles.saveCustomBtn}
-                  />
+
+                <Pressable
+                  onPress={() => {
+                    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    const n = Math.min(2000, (Number(goalTarget) || 400) + 50);
+                    setGoalTarget(String(n));
+                  }}
+                  style={styles.stepperBigBtn}
+                  accessibilityRole="button"
+                  accessibilityLabel="50 XP Artır"
+                >
+                  <Text style={styles.stepperBigText}>+50</Text>
+                </Pressable>
+              </View>
+
+              <View style={styles.xpPresetRow}>
+                {[200, 400, 800, 1200].map((xp) => (
+                  <Pressable
+                    key={xp}
+                    onPress={() => {
+                      void Haptics.selectionAsync();
+                      setGoalTarget(String(xp));
+                    }}
+                    style={[
+                      styles.xpPresetChip,
+                      Number(goalTarget) === xp && styles.xpPresetChipActive,
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.xpPresetText,
+                        Number(goalTarget) === xp && styles.xpPresetTextActive,
+                      ]}
+                    >
+                      {xp} XP
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+
+              {/* Ara Ödüller (Akıcılık İçin) */}
+              <Text style={styles.inputLabel}>⭐ Yoldaki Ara Ödüller (Akıcılık İçin)</Text>
+              <View style={styles.stepRewardRow}>
+                <View style={styles.stepRewardTagBox}>
+                  <Text style={styles.stepRewardTag}>%25</Text>
                 </View>
+                <TextInput
+                  style={[styles.input, styles.stepRewardInput]}
+                  placeholder="Ara Ödül (örn. Kahve Kaçamağı)"
+                  placeholderTextColor="#94a3b8"
+                  value={m25Title}
+                  onChangeText={setM25Title}
+                />
+              </View>
+
+              <View style={styles.stepRewardRow}>
+                <View style={styles.stepRewardTagBox}>
+                  <Text style={styles.stepRewardTag}>%60</Text>
+                </View>
+                <TextInput
+                  style={[styles.input, styles.stepRewardInput]}
+                  placeholder="Ara Ödül (örn. Film Gecesi)"
+                  placeholderTextColor="#94a3b8"
+                  value={m60Title}
+                  onChangeText={setM60Title}
+                />
               </View>
 
               {error.length > 0 && <Text style={styles.error}>{error}</Text>}
@@ -717,14 +736,16 @@ export function HomeScreen({ lang }: { lang: Lang }) {
                     onPress={() => {
                       setGoalModalMode('new');
                       setGoalTitle('');
-                      setGoalTarget('');
+                      setGoalTarget('400');
+                      setM25Title('Kahve Kaçamağı');
+                      setM60Title('Film Gecesi');
                     }}
                     style={styles.switchGoalModeBtn}
                     textStyle={styles.switchGoalModeText}
                   />
                 )}
               </View>
-            </ScrollView>
+            </View>
           </View>
         </View>
       </Modal>
@@ -737,9 +758,14 @@ export function HomeScreen({ lang }: { lang: Lang }) {
               const milestoneTarget = Math.round(target * (selectedMilestone.pct / 100));
               const isReached = total >= milestoneTarget;
               const remaining = Math.max(0, milestoneTarget - total);
-              const milestoneReward = allRewards.find(
-                (r) => r.thresholdPct === selectedMilestone.pct,
-              );
+              const milestoneRewardName =
+                selectedMilestone.pct === 25
+                  ? (activeGoal.m25Title || 'Kahve Kaçamağı')
+                  : selectedMilestone.pct === 60
+                    ? (activeGoal.m60Title || 'Film Gecesi')
+                    : activeGoal.title;
+              const milestoneEmoji =
+                selectedMilestone.pct === 25 ? '☕' : selectedMilestone.pct === 60 ? '🎬' : '🏆';
 
               return (
                 <>
@@ -778,19 +804,19 @@ export function HomeScreen({ lang }: { lang: Lang }) {
                       </Text>
                     </View>
 
-                    {milestoneReward && (
-                      <View style={styles.milestoneRewardCard}>
-                        <Text style={styles.milestoneRewardEmoji}>🎁</Text>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.milestoneRewardHeading}>
-                            Bu Kademede Açılan Ödül
-                          </Text>
-                          <Text style={styles.milestoneRewardName}>
-                            {rewardTitle(milestoneReward, lang)}
-                          </Text>
-                        </View>
+                    <View style={styles.milestoneRewardCard}>
+                      <Text style={styles.milestoneRewardEmoji}>{milestoneEmoji}</Text>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.milestoneRewardHeading}>
+                          {selectedMilestone.pct === 100
+                            ? 'Büyük Hedef'
+                            : 'Bu Kademede Açılan Ara Ödül'}
+                        </Text>
+                        <Text style={styles.milestoneRewardName}>
+                          {milestoneRewardName}
+                        </Text>
                       </View>
-                    )}
+                    </View>
                   </View>
 
                   <BouncyPressable
@@ -954,11 +980,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  goalRowActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
   editGoalBtn: {
     backgroundColor: '#eff6ff',
     borderColor: '#bfdbfe',
@@ -976,12 +997,15 @@ const styles = StyleSheet.create({
     backgroundColor: '#fef3c7',
     borderColor: '#fde68a',
     borderWidth: 1,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+    alignSelf: 'flex-start',
+    marginTop: 2,
+    maxWidth: '100%',
   },
   activeRewardText: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: '800',
     color: '#b45309',
   },
@@ -1419,22 +1443,112 @@ const styles = StyleSheet.create({
   startGoalBtn: {
     width: '100%',
   },
-  customRewardBox: {
-    borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
-    paddingTop: 12,
-    marginTop: 8,
+  goalFormContent: {
     gap: 8,
   },
-  customRewardBottomRow: {
+  goalTargetRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    marginVertical: 4,
+  },
+  stepperBigBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#f1f5f9',
+    borderWidth: 1.5,
+    borderColor: '#cbd5e1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepperBigText: {
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#0f766e',
+  },
+  goalTargetInput: {
+    width: 100,
+    height: 44,
+    backgroundColor: '#f8fafc',
+    borderColor: '#0f766e',
+    borderWidth: 2,
+    borderRadius: 12,
+    textAlign: 'center',
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#0f172a',
+  },
+  xpPresetRow: {
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  xpPresetChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 10,
+    backgroundColor: '#f1f5f9',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  xpPresetChipActive: {
+    backgroundColor: '#ccfbf1',
+    borderColor: '#14b8a6',
+  },
+  xpPresetText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748b',
+  },
+  xpPresetTextActive: {
+    color: '#0f766e',
+    fontWeight: '800',
+  },
+  milestonesMiniRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 4,
+  },
+  miniMilestonePill: {
+    backgroundColor: '#f1f5f9',
+    borderColor: '#e2e8f0',
+    borderWidth: 1,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
+  miniMilestoneText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  stepRewardRow: {
+    flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+    marginBottom: 6,
   },
-  pctChipsGroup: {
-    flexDirection: 'row',
-    gap: 6,
+  stepRewardTagBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: '#f1f5f9',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepRewardTag: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#0f766e',
+  },
+  stepRewardInput: {
+    flex: 1,
+    marginBottom: 0,
   },
   error: {
     color: '#dc2626',

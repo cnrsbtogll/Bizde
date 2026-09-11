@@ -65,15 +65,17 @@ export function clampPoints(n: number, t: Pick<TaskTemplate, 'minPoints' | 'maxP
 }
 
 export function findTemplate(
-  id: string,
+  id?: string,
   custom: TaskTemplate[] = [],
 ): TaskTemplate | undefined {
+  if (!id) return undefined;
   return custom.find((c) => c.id === id) ?? TASK_TEMPLATES.find((c) => c.id === id);
 }
 
 export function findReward(
-  id: string,
+  id?: string,
   custom: RewardTemplate[] = [],
 ): RewardTemplate | undefined {
+  if (!id) return undefined;
   return custom.find((c) => c.id === id) ?? REWARD_TEMPLATES.find((c) => c.id === id);
 }
