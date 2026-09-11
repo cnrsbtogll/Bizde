@@ -1,4 +1,5 @@
 import {
+  hasAppreciatedToday,
   historyActivities,
   incomingRequests,
   outgoingRequests,
@@ -77,10 +78,27 @@ describe('claim + approve flow', () => {
     expect(h).toHaveLength(1);
     expect(h[0]?.status).toBe('rejected');
   });
-  it('appreciation is instantly approved', () => {
-    pairedAs();
+  it('appreciation is instantly approved and limited to once per day per user', () => {
+    pairedAs('Ayşe', 'Hakan');
+    useBizde.getState().setActor('Ayşe');
     useBizde.getState().appreciate();
     expect(totalPoints(useBizde.getState().activities)).toBe(APPRECIATION_POINTS);
+    expect(hasAppreciatedToday(useBizde.getState().activities, 'Ayşe')).toBe(true);
+    expect(hasAppreciatedToday(useBizde.getState().activities, 'Hakan')).toBe(false);
+
+    // Ayşe trying again on the same day is rejected
+    useBizde.getState().appreciate();
+    expect(totalPoints(useBizde.getState().activities)).toBe(APPRECIATION_POINTS);
+
+    // Hakan can appreciate once on the same day
+    useBizde.getState().setActor('Hakan');
+    useBizde.getState().appreciate();
+    expect(totalPoints(useBizde.getState().activities)).toBe(APPRECIATION_POINTS * 2);
+    expect(hasAppreciatedToday(useBizde.getState().activities, 'Hakan')).toBe(true);
+
+    // Hakan trying again on the same day is rejected
+    useBizde.getState().appreciate();
+    expect(totalPoints(useBizde.getState().activities)).toBe(APPRECIATION_POINTS * 2);
   });
   it('stacked totals split by member', () => {
     pairedAs();
@@ -206,14 +224,16 @@ describe('custom rewards', () => {
 });
 
 describe('mutual goal proposal flow', () => {
-  it('proposes common goal and enforces min 150 points', () => {
+  it('proposes common goal and enforces 150 - 600 points', () => {
     pairedAs('Caner', 'Leyla');
     useBizde.getState().setActor('Caner');
 
     // Rejects below 150 for common goal
     expect(useBizde.getState().proposeGoal('common', 'Ufak Hedef', 100)).toBe(false);
+    // Rejects above 600 for common goal
+    expect(useBizde.getState().proposeGoal('common', 'Aşırı Hedef', 650)).toBe(false);
 
-    // Accepts 150+
+    // Accepts 150-600
     expect(useBizde.getState().proposeGoal('common', 'Birlikte Kapadokya', 500, 'Kahve', 'Sinema')).toBe(true);
     const proposal = useBizde.getState().pendingGoalProposal;
     expect(proposal).not.toBeNull();
@@ -232,14 +252,16 @@ describe('mutual goal proposal flow', () => {
     expect(useBizde.getState().pendingGoalProposal).toBeNull();
   });
 
-  it('proposes personal goal and handles rejection', () => {
+  it('proposes personal goal and enforces 100 - 400 points', () => {
     pairedAs('Caner', 'Leyla');
     useBizde.getState().setActor('Leyla');
 
     // Rejects below 100 for personal goal
     expect(useBizde.getState().proposeGoal('Leyla', 'Bedava Yemek', 50)).toBe(false);
+    // Rejects above 400 for personal goal
+    expect(useBizde.getState().proposeGoal('Leyla', 'Aşırı Büyük Ödül', 450)).toBe(false);
 
-    // Accepts 100+
+    // Accepts 100-400
     expect(useBizde.getState().proposeGoal('Leyla', 'Spa & Akşam Yemeği', 250)).toBe(true);
     expect(useBizde.getState().pendingGoalProposal).not.toBeNull();
 

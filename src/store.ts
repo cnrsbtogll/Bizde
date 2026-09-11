@@ -278,7 +278,7 @@ export const useBizde = create<BizdeState>()((set, get) => ({
 
   updateActiveGoal: (title, targetPoints, m25Title, m60Title) => {
     const clean = title.trim();
-    if (!clean || !Number.isInteger(targetPoints) || targetPoints < 150 || targetPoints > 2000) return false;
+    if (!clean || !Number.isInteger(targetPoints) || targetPoints < 150 || targetPoints > 600) return false;
     set({
       activeGoal: {
         ...get().activeGoal,
@@ -294,7 +294,7 @@ export const useBizde = create<BizdeState>()((set, get) => ({
 
   updatePersonalGoal: (member, title, targetPoints, m25Title, m60Title) => {
     const clean = title.trim();
-    if (!clean || !Number.isInteger(targetPoints) || targetPoints < 100 || targetPoints > 2000) return false;
+    if (!clean || !Number.isInteger(targetPoints) || targetPoints < 100 || targetPoints > 400) return false;
     set((s) => ({
       personalGoals: {
         ...s.personalGoals,
@@ -312,7 +312,8 @@ export const useBizde = create<BizdeState>()((set, get) => ({
   proposeGoal: (targetType, title, targetPoints, m25Title, m60Title, targetMember) => {
     const clean = title.trim();
     const minPts = targetType === 'common' ? 150 : 100;
-    if (!clean || !Number.isInteger(targetPoints) || targetPoints < minPts || targetPoints > 2000) {
+    const maxPts = targetType === 'common' ? 600 : 400;
+    if (!clean || !Number.isInteger(targetPoints) || targetPoints < minPts || targetPoints > maxPts) {
       return false;
     }
     const { members, actor, updateActiveGoal, updatePersonalGoal } = get();
@@ -364,7 +365,7 @@ export const useBizde = create<BizdeState>()((set, get) => ({
 
   adjustTargetPoints: (delta) => {
     const { activeGoal } = get();
-    const next = Math.min(2000, Math.max(100, activeGoal.targetPoints + delta));
+    const next = Math.min(600, Math.max(150, activeGoal.targetPoints + delta));
     set({ activeGoal: { ...activeGoal, targetPoints: next } });
     return next;
   },
@@ -431,9 +432,10 @@ export const useBizde = create<BizdeState>()((set, get) => ({
   },
 
   appreciate: () => {
-    const { actor, members } = get();
+    const { actor, members, activities } = get();
     if (!actor) return;
     const who = members.includes(actor) ? actor : (members[0] ?? actor);
+    if (hasAppreciatedToday(activities, who)) return;
     const activity: Activity = {
       id: newId('a'),
       claimedBy: who,
@@ -446,12 +448,12 @@ export const useBizde = create<BizdeState>()((set, get) => ({
       approvedBy: who,
       decidedAt: Date.now(),
     };
-    set({ activities: [activity, ...get().activities] });
+    set({ activities: [activity, ...activities] });
   },
 
   startNewGoal: (title, targetPoints, m25Title, m60Title) => {
     const clean = title.trim();
-    if (!clean || !Number.isInteger(targetPoints) || targetPoints < 150 || targetPoints > 2000) return false;
+    if (!clean || !Number.isInteger(targetPoints) || targetPoints < 150 || targetPoints > 600) return false;
     const { activeGoal, activities } = get();
     const total = totalPoints(activities);
     set({
@@ -545,4 +547,20 @@ export function historyActivities(activities: Activity[]): Activity[] {
 /** Eski adla uyum: son 5 onaylı/geçmiş. */
 export function recentActivities(activities: Activity[]): Activity[] {
   return historyActivities(activities).slice(0, 5);
+}
+
+/** Belirtilen kullanıcının bugün teşekkür edip etmediği (günde 1 kez sınırı). */
+export function hasAppreciatedToday(activities: Activity[], actor: string): boolean {
+  if (!actor) return false;
+  const startOfToday = new Date();
+  startOfToday.setHours(0, 0, 0, 0);
+  const startMs = startOfToday.getTime();
+
+  return activities.some(
+    (a) =>
+      a.type === 'appreciation' &&
+      a.claimedBy.toLowerCase() === actor.toLowerCase() &&
+      a.createdAt >= startMs &&
+      a.status === 'approved',
+  );
 }

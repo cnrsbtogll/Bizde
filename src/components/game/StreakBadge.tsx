@@ -40,10 +40,10 @@ export function StreakBadge({ streakDays, label = 'Seri' }: StreakBadgeProps) {
           style={styles.flame}
         />
       </View>
-      <View style={styles.textCol}>
+      <Text style={styles.streakText}>
         <Text style={styles.streakNumber}>{streakDays}</Text>
-        <Text style={styles.streakLabel}>{label}</Text>
-      </View>
+        <Text style={styles.streakLabel}> {label}</Text>
+      </Text>
     </Animated.View>
   );
 }
@@ -52,43 +52,39 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: '#fff7ed',
-    borderColor: '#ffedd5',
-    borderWidth: 1.5,
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    shadowColor: '#ea580c',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-    gap: 2,
+    borderColor: '#fed7aa',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    height: 28,
+    gap: 4,
   },
   lottieContainer: {
-    width: 36,
-    height: 36,
+    width: 16,
+    height: 16,
     justifyContent: 'center',
     alignItems: 'center',
   },
   flame: {
-    width: 36,
-    height: 36,
+    width: 16,
+    height: 16,
   },
-  textCol: {
-    alignItems: 'flex-start',
+  streakText: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   streakNumber: {
-    fontSize: 15,
+    fontSize: 12,
     fontWeight: '800',
     color: '#ea580c',
-    lineHeight: 18,
   },
   streakLabel: {
     fontSize: 10,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#c2410c',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
 });

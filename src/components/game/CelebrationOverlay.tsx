@@ -37,7 +37,7 @@ export function CelebrationOverlay({
   if (!visible) return null;
 
   return (
-    <Modal visible={visible} transparent animationType="fade">
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
       <View style={styles.overlay}>
         {/* Confetti Rain Background */}
         <View pointerEvents="none" style={StyleSheet.absoluteFill}>

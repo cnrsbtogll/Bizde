@@ -138,25 +138,24 @@ const VARIANT_COLORS: Record<
 
 const styles = StyleSheet.create({
   wrapper: {
-    minHeight: 44,
     justifyContent: 'center',
   },
   disabledWrapper: {
     opacity: 0.5,
   },
   buttonBase: {
-    paddingVertical: 12,
-    paddingHorizontal: 18,
-    borderRadius: 14,
-    borderBottomWidth: 4,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderBottomWidth: 3,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
   },
   title: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '700',
-    letterSpacing: 0.3,
+    letterSpacing: 0.2,
   },
 });

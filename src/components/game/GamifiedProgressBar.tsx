@@ -18,6 +18,9 @@ import { MILESTONES, type Milestone } from '@/lib/progress';
 interface GamifiedProgressBarProps {
   total: number;
   target: number;
+  goalTitle?: string;
+  m25Title?: string;
+  m60Title?: string;
   member1Name: string;
   member1Points: number;
   member2Name: string;
@@ -37,6 +40,9 @@ const SPRING_CONFIG = {
 export function GamifiedProgressBar({
   total,
   target,
+  goalTitle,
+  m25Title,
+  m60Title,
   member1Name,
   member1Points,
   member2Name,
@@ -70,18 +76,54 @@ export function GamifiedProgressBar({
 
   return (
     <View style={styles.card}>
-      <View style={styles.topRow}>
+      {/* Top Header Row matching PersonalGoalCard */}
+      <View style={styles.topHeaderRow}>
+        <View style={styles.badgeRow}>
+          <Text style={styles.badgeEmoji}>🏆</Text>
+          <Text style={styles.badgeLabel}>ORTAK HEDEF</Text>
+        </View>
         <Pressable
           onPress={() => {
             void Haptics.selectionAsync();
             onEditGoal?.();
           }}
-          style={styles.levelBadge}
+          style={styles.editBtn}
+          hitSlop={8}
           accessibilityRole="button"
-          accessibilityLabel="Hedefi Düzenle"
+          accessibilityLabel="Ortak Hedefi Düzenle"
         >
-          <Text style={styles.levelText}>HEDEF XP ✏️</Text>
+          <Text style={styles.editBtnText}>✏️ Düzenle</Text>
         </Pressable>
+      </View>
+
+      {/* Goal Title */}
+      {goalTitle ? (
+        <Text style={styles.goalMainTitle} numberOfLines={1}>
+          {goalTitle}
+        </Text>
+      ) : null}
+
+      {/* Milestones Pills Row */}
+      {(m25Title || m60Title) ? (
+        <View style={styles.milestonesMiniRow}>
+          {m25Title ? (
+            <View style={styles.miniMilestonePill}>
+              <Text style={styles.miniMilestoneText}>☕ %25: {m25Title}</Text>
+            </View>
+          ) : null}
+          {m60Title ? (
+            <View style={styles.miniMilestonePill}>
+              <Text style={styles.miniMilestoneText}>🎬 %60: {m60Title}</Text>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+
+      {/* Target XP & Stepper Row */}
+      <View style={styles.targetRow}>
+        <View style={styles.targetBadge}>
+          <Text style={styles.targetBadgeText}>HEDEF XP</Text>
+        </View>
 
         <View style={styles.targetControlGroup}>
           {onAdjustTarget && (
@@ -208,23 +250,79 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
     borderWidth: 1.5,
-    borderColor: '#f1f5f9',
-    gap: 10,
+    borderColor: '#e2e8f0',
+    gap: 8,
   },
-  topRow: {
+  topHeaderRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  levelBadge: {
+  badgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  badgeEmoji: {
+    fontSize: 13,
+  },
+  badgeLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#0f766e',
+    letterSpacing: 0.5,
+  },
+  editBtn: {
+    backgroundColor: '#f0fdfa',
+    borderColor: '#ccfbf1',
+    borderWidth: 1,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 8,
+  },
+  editBtnText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#0f766e',
+  },
+  goalMainTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#0f172a',
+  },
+  milestonesMiniRow: {
+    flexDirection: 'row',
+    gap: 6,
+    flexWrap: 'wrap',
+  },
+  miniMilestonePill: {
+    backgroundColor: '#f8fafc',
+    borderColor: '#e2e8f0',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  miniMilestoneText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  targetRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 2,
+  },
+  targetBadge: {
     backgroundColor: '#fef3c7',
     borderColor: '#fde68a',
     borderWidth: 1,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
+    paddingHorizontal: 7,
+    paddingVertical: 2,
+    borderRadius: 8,
   },
-  levelText: {
+  targetBadgeText: {
     fontSize: 10,
     fontWeight: '800',
     color: '#b45309',

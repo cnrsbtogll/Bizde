@@ -12,6 +12,7 @@ import {
 import * as Haptics from 'expo-haptics';
 import {
   getPersonalGoal,
+  hasAppreciatedToday,
   historyActivities,
   incomingRequests,
   outgoingRequests,
@@ -91,7 +92,10 @@ export function HomeScreen({ lang }: { lang: Lang }) {
   const [editingTask, setEditingTask] = useState<TaskTemplate | null>(null);
   const [editingTaskPoints, setEditingTaskPoints] = useState('');
   const [error, setError] = useState('');
-  const [celebratedGoal, setCelebratedGoal] = useState(false);
+  const [celebratedGoalKey, setCelebratedGoalKey] = useState<string | null>(null);
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [showAllHistory, setShowAllHistory] = useState(false);
+  const [showAllPending, setShowAllPending] = useState(false);
   const [proposalFeedback, setProposalFeedback] = useState('');
 
   const applyGoalPackage = (pkg: GoalPackage) => {
@@ -122,12 +126,14 @@ export function HomeScreen({ lang }: { lang: Lang }) {
   const maleGoal = getPersonalGoal(personalGoals, maleMember, members);
   const femaleGoal = getPersonalGoal(personalGoals, femaleMember, members);
 
-  // Trigger celebration modal once when target is reached
+  // Trigger celebration modal once per completed goal instance
   useEffect(() => {
-    if (done && !celebratedGoal && total > 0) {
-      setCelebratedGoal(true);
+    const currentGoalKey = `${activeGoal.title}-${activeGoal.targetPoints}`;
+    if (done && total > 0 && celebratedGoalKey !== currentGoalKey) {
+      setCelebratedGoalKey(currentGoalKey);
+      setShowCelebration(true);
     }
-  }, [done, celebratedGoal, total]);
+  }, [done, total, activeGoal.title, activeGoal.targetPoints, celebratedGoalKey]);
 
   const handleTaskAction = (tpl: TaskTemplate) => {
     const title = templateTitle(tpl, lang);
@@ -225,11 +231,12 @@ export function HomeScreen({ lang }: { lang: Lang }) {
   const saveGoal = () => {
     const pts = Number(goalTarget);
     const minPts = editingGoalTarget === 'common' ? 150 : 100;
-    if (!goalTitle.trim() || !Number.isInteger(pts) || pts < minPts || pts > 2000) {
+    const maxPts = editingGoalTarget === 'common' ? 600 : 400;
+    if (!goalTitle.trim() || !Number.isInteger(pts) || pts < minPts || pts > maxPts) {
       setError(
         editingGoalTarget === 'common'
-          ? (lang === 'tr' ? 'Ortak hedef 150 - 2000 puan arasında olmalıdır.' : 'Common goal must be 150 - 2000 points.')
-          : (lang === 'tr' ? 'Kişisel hedef 100 - 2000 puan arasında olmalıdır.' : 'Personal goal must be 100 - 2000 points.')
+          ? (lang === 'tr' ? 'Ortak hedef 150 - 600 puan arasında olmalıdır.' : 'Common goal must be 150 - 600 points.')
+          : (lang === 'tr' ? 'Kişisel hedef 100 - 400 puan arasında olmalıdır.' : 'Personal goal must be 100 - 400 points.')
       );
       return;
     }
@@ -270,7 +277,8 @@ export function HomeScreen({ lang }: { lang: Lang }) {
           setError(t(lang, 'home.badPoints'));
           return;
         }
-        setCelebratedGoal(false);
+        setShowCelebration(false);
+        setCelebratedGoalKey(null);
       }
     } else {
       const ok = updatePersonalGoal(editingGoalTarget, goalTitle, pts, m25Title, m60Title);
@@ -286,11 +294,12 @@ export function HomeScreen({ lang }: { lang: Lang }) {
   const filteredTemplates = allTemplates.filter((t) => t.category === selectedCategory);
 
   return (
-    <ScrollView
-      style={styles.scrollBox}
-      contentContainerStyle={styles.scrollContent}
-      showsVerticalScrollIndicator={false}
-    >
+    <View style={styles.container}>
+      <ScrollView
+        style={styles.scrollBox}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
       {/* Top Bar: Active player chips + Streak Flame Badge */}
       <View style={styles.headerBar}>
         <View style={styles.actorGroup}>
@@ -299,14 +308,29 @@ export function HomeScreen({ lang }: { lang: Lang }) {
             {members.map((m) => {
               const isActive = actor === m;
               return (
-                <BouncyPressable
+                <Pressable
                   key={m}
-                  title={m}
-                  variant={isActive ? 'primary' : 'ghost'}
-                  onPress={() => setActor(m)}
-                  style={styles.chipButton}
-                  textStyle={styles.chipText}
-                />
+                  onPress={() => {
+                    void Haptics.selectionAsync();
+                    setActor(m);
+                  }}
+                  hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
+                  style={[
+                    styles.chipButton,
+                    isActive ? styles.chipButtonActive : styles.chipButtonInactive,
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Kullanıcı ${m}`}
+                >
+                  <Text
+                    style={[
+                      styles.chipText,
+                      isActive ? styles.chipTextActive : styles.chipTextInactive,
+                    ]}
+                  >
+                    {m}
+                  </Text>
+                </Pressable>
               );
             })}
           </View>
@@ -380,24 +404,44 @@ export function HomeScreen({ lang }: { lang: Lang }) {
               />
             </View>
           ) : (
-            <View style={styles.proposalWaitingRow}>
-              <Text style={styles.proposalWaitingText}>
-                ⏳ {lang === 'tr' ? 'Eşinin onayı bekleniyor...' : 'Awaiting partner approval...'}
-              </Text>
-              <Pressable
-                onPress={() => {
-                  void Haptics.selectionAsync();
-                  rejectGoalProposal();
-                  setProposalFeedback(
-                    lang === 'tr' ? 'Teklif geri çekildi.' : 'Proposal retracted.'
-                  );
-                }}
-                style={styles.proposalCancelBtn}
-              >
-                <Text style={styles.proposalCancelText}>
-                  {lang === 'tr' ? 'Geri Çek' : 'Cancel'}
+            <View style={styles.proposalWaitingCol}>
+              <View style={styles.proposalWaitingRow}>
+                <Text style={styles.proposalWaitingText}>
+                  ⏳ {lang === 'tr' ? 'Eşinin onayı bekleniyor...' : 'Awaiting partner approval...'}
                 </Text>
-              </Pressable>
+                <Pressable
+                  onPress={() => {
+                    void Haptics.selectionAsync();
+                    rejectGoalProposal();
+                    setProposalFeedback(
+                      lang === 'tr' ? 'Teklif geri çekildi.' : 'Proposal retracted.'
+                    );
+                  }}
+                  style={styles.proposalCancelBtn}
+                >
+                  <Text style={styles.proposalCancelText}>
+                    {lang === 'tr' ? 'Geri Çek' : 'Cancel'}
+                  </Text>
+                </Pressable>
+              </View>
+              {(() => {
+                const partner = members.find((m) => m !== actor);
+                if (!partner) return null;
+                return (
+                  <Pressable
+                    onPress={() => {
+                      void Haptics.selectionAsync();
+                      setActor(partner);
+                    }}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    style={styles.proposalSwitchPartnerBtn}
+                  >
+                    <Text style={styles.proposalSwitchPartnerText}>
+                      👤 {lang === 'tr' ? `${partner}'a Geç ve Onayla` : `Switch to ${partner} to review`}
+                    </Text>
+                  </Pressable>
+                );
+              })()}
             </View>
           )}
         </View>
@@ -413,45 +457,13 @@ export function HomeScreen({ lang }: { lang: Lang }) {
         </View>
       )}
 
-      {/* Goal Title & Journey */}
-      <View style={styles.goalHeader}>
-        <View style={styles.goalRow}>
-          <Text style={styles.goalSubtitle}>{t(lang, 'home.goal')}</Text>
-          <Pressable
-            onPress={() => {
-              void Haptics.selectionAsync();
-              openEditGoalModal();
-            }}
-            style={styles.editGoalBtn}
-            accessibilityRole="button"
-            accessibilityLabel={lang === 'tr' ? 'Ortak Hedefi Düzenle' : 'Edit Common Goal'}
-          >
-            <Text style={styles.editGoalBtnText}>
-              ✏️ {lang === 'tr' ? 'Ortak Hedefi Düzenle' : 'Edit Common Goal'}
-            </Text>
-          </Pressable>
-        </View>
-
-        <Text style={styles.goalMainTitle}>🏆 {activeGoal.title}</Text>
-
-        <View style={styles.milestonesMiniRow}>
-          <View style={styles.miniMilestonePill}>
-            <Text style={styles.miniMilestoneText}>
-              ☕ %25: {activeGoal.m25Title || 'Kahve Kaçamağı'}
-            </Text>
-          </View>
-          <View style={styles.miniMilestonePill}>
-            <Text style={styles.miniMilestoneText}>
-              🎬 %60: {activeGoal.m60Title || 'Film Gecesi'}
-            </Text>
-          </View>
-        </View>
-      </View>
-
-      {/* Gamified XP Progress Bar with Spring Animation */}
+      {/* Gamified XP Progress Bar with Integrated Common Goal Header & Journey */}
       <GamifiedProgressBar
         total={total}
         target={target}
+        goalTitle={activeGoal.title}
+        m25Title={activeGoal.m25Title}
+        m60Title={activeGoal.m60Title}
         member1Name={maleMember}
         member1Points={n1 ?? 0}
         member2Name={femaleMember}
@@ -482,22 +494,32 @@ export function HomeScreen({ lang }: { lang: Lang }) {
       </View>
 
       {/* Primary Action Buttons: Add Task & Appreciation */}
-      <View style={styles.actionRow}>
-        <BouncyPressable
-          variant="primary"
-          title={`⚡ ${t(lang, 'home.addPoints')}`}
-          onPress={() => setTaskModal(true)}
-          style={styles.actionButton}
-          textStyle={styles.actionText}
-        />
-        <BouncyPressable
-          variant="amber"
-          title={`💖 ${t(lang, 'home.thanks')}`}
-          onPress={() => appreciate()}
-          style={styles.actionButton}
-          textStyle={styles.actionText}
-        />
-      </View>
+      {(() => {
+        const isAppreciated = hasAppreciatedToday(activities, actor);
+        return (
+          <View style={styles.actionRow}>
+            <BouncyPressable
+              variant="primary"
+              title={`⚡ ${t(lang, 'home.addPoints')}`}
+              onPress={() => setTaskModal(true)}
+              style={styles.actionButton}
+              textStyle={styles.actionText}
+            />
+            <BouncyPressable
+              variant={isAppreciated ? 'ghost' : 'amber'}
+              title={
+                isAppreciated
+                  ? (lang === 'tr' ? '💖 Teşekkür Edildi' : '💖 Appreciated')
+                  : `💖 ${t(lang, 'home.thanks')}`
+              }
+              disabled={isAppreciated}
+              onPress={() => appreciate()}
+              style={styles.actionButton}
+              textStyle={styles.actionText}
+            />
+          </View>
+        );
+      })()}
 
       {/* Section 1: Incoming Requests (Partner asked ME to do this) */}
       {incoming.length > 0 && (
@@ -577,7 +599,7 @@ export function HomeScreen({ lang }: { lang: Lang }) {
         </View>
       ) : (
         <View style={styles.pendingList}>
-          {pending.map((item) => {
+          {(showAllPending ? pending : pending.slice(0, 3)).map((item) => {
             const isMyClaim = item.claimedBy === actor;
             return (
               <View key={item.id} style={styles.pendingCard}>
@@ -627,6 +649,22 @@ export function HomeScreen({ lang }: { lang: Lang }) {
               </View>
             );
           })}
+          {pending.length > 3 && (
+            <Pressable
+              onPress={() => {
+                void Haptics.selectionAsync();
+                setShowAllPending(!showAllPending);
+              }}
+              style={styles.showMoreBtn}
+              hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }}
+            >
+              <Text style={styles.showMoreText}>
+                {showAllPending
+                  ? (lang === 'tr' ? '▲ Daha Az Göster' : '▲ Show Less')
+                  : (lang === 'tr' ? `▼ Daha Fazla Göster (+${pending.length - 3})` : `▼ Show More (+${pending.length - 3})`)}
+              </Text>
+            </Pressable>
+          )}
         </View>
       )}
 
@@ -638,14 +676,17 @@ export function HomeScreen({ lang }: { lang: Lang }) {
         </View>
       ) : (
         <View style={styles.historyList}>
-          {history.map((item) => {
+          {(showAllHistory ? history : history.slice(0, 3)).map((item) => {
             const isApproved = item.status === 'approved';
+            const actionSuffix = isApproved
+              ? (lang === 'tr' ? (item.type === 'appreciation' ? '(etti)' : '(yaptı)') : (item.type === 'appreciation' ? '(appreciated)' : '(did it)'))
+              : (lang === 'tr' ? '(olmadı)' : '(rejected)');
             return (
               <View key={item.id} style={[styles.historyCard, !isApproved && styles.historyRejectedCard]}>
                 <View style={styles.historyRow}>
-                  <Text style={styles.historyName}>{item.claimedBy}</Text>
-                  <Text style={[styles.historyItemTitle, !isApproved && styles.rejectedText]}>
-                    {item.title}
+                  <Text style={styles.historyName} numberOfLines={1}>{item.claimedBy}</Text>
+                  <Text style={[styles.historyItemTitle, !isApproved && styles.rejectedText]} numberOfLines={1}>
+                    {item.title} {actionSuffix}
                   </Text>
                   <View
                     style={[
@@ -666,8 +707,25 @@ export function HomeScreen({ lang }: { lang: Lang }) {
               </View>
             );
           })}
+          {history.length > 3 && (
+            <Pressable
+              onPress={() => {
+                void Haptics.selectionAsync();
+                setShowAllHistory(!showAllHistory);
+              }}
+              style={styles.showMoreBtn}
+              hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }}
+            >
+              <Text style={styles.showMoreText}>
+                {showAllHistory
+                  ? (lang === 'tr' ? '▲ Daha Az Göster' : '▲ Show Less')
+                  : (lang === 'tr' ? `▼ Daha Fazla Göster (+${history.length - 3})` : `▼ Show More (+${history.length - 3})`)}
+              </Text>
+            </Pressable>
+          )}
         </View>
       )}
+      </ScrollView>
 
       {/* Task Picker Modal (with Hybrid Switch: Ben Yaptım vs Partnerime İste) */}
       <Modal visible={taskModal} transparent animationType="slide">
@@ -899,8 +957,8 @@ export function HomeScreen({ lang }: { lang: Lang }) {
               {/* Target XP Input & Presets */}
               <Text style={styles.inputLabel}>
                 {editingGoalTarget === 'common'
-                  ? (lang === 'tr' ? '🎯 Ortak Hedef Puanı (150 - 2000 XP)' : '🎯 Common Goal Points (150 - 2000 XP)')
-                  : (lang === 'tr' ? '🎯 Kişisel Hedef Puanı (100 - 2000 XP)' : '🎯 Personal Goal Points (100 - 2000 XP)')}
+                  ? (lang === 'tr' ? '🎯 Ortak Hedef Puanı (150 - 600 XP)' : '🎯 Common Goal Points (150 - 600 XP)')
+                  : (lang === 'tr' ? '🎯 Kişisel Hedef Puanı (100 - 400 XP)' : '🎯 Personal Goal Points (100 - 400 XP)')}
               </Text>
               <View style={styles.goalTargetRow}>
                 <Pressable
@@ -927,7 +985,8 @@ export function HomeScreen({ lang }: { lang: Lang }) {
                 <Pressable
                   onPress={() => {
                     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                    const n = Math.min(2000, (Number(goalTarget) || 200) + 50);
+                    const maxAllowed = editingGoalTarget === 'common' ? 600 : 400;
+                    const n = Math.min(maxAllowed, (Number(goalTarget) || 200) + 50);
                     setGoalTarget(String(n));
                   }}
                   style={styles.stepperBigBtn}
@@ -963,10 +1022,10 @@ export function HomeScreen({ lang }: { lang: Lang }) {
                 ))}
               </View>
 
-              {/* Ara Ödüller (Akıcılık İçin) - Only for Common Goal */}
+              {/* Ara Ödüller - Only for Common Goal */}
               {editingGoalTarget === 'common' && (
                 <>
-                  <Text style={styles.inputLabel}>⭐ Yoldaki Ara Ödüller (Akıcılık İçin)</Text>
+                  <Text style={styles.inputLabel}>⭐ Yoldaki Ara Ödüller</Text>
 
                   {/* %25 Section */}
                   <View style={styles.stepRewardRow}>
@@ -1247,21 +1306,28 @@ export function HomeScreen({ lang }: { lang: Lang }) {
 
       {/* Screen-Wide Celebration Overlay with Confetti & Trophy */}
       <CelebrationOverlay
-        visible={celebratedGoal}
+        visible={showCelebration}
         title={activeGoal.title}
         subtitle={`${total} / ${target} XP Ulaşıldı!`}
         newGoalButtonText={t(lang, 'home.newGoal')}
         onNewGoal={() => {
-          setCelebratedGoal(false);
-          openNewGoalModal();
+          setShowCelebration(false);
+          // Wait for celebration modal to dismiss on iOS before presenting goal modal
+          setTimeout(() => {
+            openNewGoalModal();
+          }, 350);
         }}
-        onClose={() => setCelebratedGoal(false)}
+        onClose={() => setShowCelebration(false)}
       />
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+  },
   scrollBox: {
     flex: 1,
     backgroundColor: '#f8fafc',
@@ -1299,14 +1365,30 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   chipButton: {
-    paddingVertical: 4,
-    paddingHorizontal: 10,
+    paddingVertical: 5,
+    paddingHorizontal: 12,
     borderRadius: 10,
-    minHeight: 30,
+    minHeight: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  chipButtonActive: {
+    backgroundColor: '#2563eb',
+  },
+  chipButtonInactive: {
+    backgroundColor: '#f1f5f9',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
   chipText: {
     fontSize: 12,
     fontWeight: '700',
+  },
+  chipTextActive: {
+    color: '#ffffff',
+  },
+  chipTextInactive: {
+    color: '#475569',
   },
   goalHeader: {
     gap: 2,
@@ -1369,12 +1451,14 @@ const styles = StyleSheet.create({
   },
   actionButton: {
     flex: 1,
-    minHeight: 38,
-    paddingVertical: 6,
-    borderRadius: 12,
+    minHeight: 34,
+    paddingVertical: 7,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    borderBottomWidth: 3,
   },
   actionText: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '800',
   },
   incomingSection: {
@@ -1479,9 +1563,10 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 13.5,
     fontWeight: '800',
-    color: '#1e293b',
+    color: '#0f172a',
+    letterSpacing: 0.3,
   },
   pendingCountBadge: {
     backgroundColor: '#f59e0b',
@@ -1496,16 +1581,17 @@ const styles = StyleSheet.create({
   },
   emptyCard: {
     backgroundColor: '#ffffff',
-    borderRadius: 14,
-    padding: 16,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
     borderWidth: 1,
     borderColor: '#e2e8f0',
     alignItems: 'center',
   },
   emptyText: {
-    fontSize: 13,
+    fontSize: 12,
     color: '#94a3b8',
-    fontWeight: '500',
+    fontWeight: '600',
   },
   pendingList: {
     gap: 6,
@@ -1588,11 +1674,12 @@ const styles = StyleSheet.create({
   },
   historyCard: {
     backgroundColor: '#ffffff',
-    borderRadius: 10,
-    padding: 8,
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
     borderWidth: 1,
     borderColor: '#f1f5f9',
-    marginBottom: 4,
+    marginBottom: 3,
   },
   historyRejectedCard: {
     opacity: 0.5,
@@ -1606,17 +1693,34 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#64748b',
-    width: 55,
+    width: 45,
   },
   historyItemTitle: {
     fontSize: 12,
     fontWeight: '600',
     color: '#334155',
     flex: 1,
-    marginHorizontal: 6,
+    marginHorizontal: 4,
   },
   rejectedText: {
     textDecorationLine: 'line-through',
+  },
+  showMoreBtn: {
+    paddingVertical: 5,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+    alignSelf: 'center',
+  },
+  showMoreText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#475569',
   },
   historyBadge: {
     borderRadius: 6,
@@ -2214,11 +2318,29 @@ const styles = StyleSheet.create({
     minHeight: 40,
     paddingVertical: 8,
   },
+  proposalWaitingCol: {
+    gap: 6,
+    paddingVertical: 2,
+  },
   proposalWaitingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 4,
+    paddingVertical: 2,
+  },
+  proposalSwitchPartnerBtn: {
+    backgroundColor: '#eff6ff',
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+    borderRadius: 8,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    alignSelf: 'flex-start',
+  },
+  proposalSwitchPartnerText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: '#1d4ed8',
   },
   proposalWaitingText: {
     fontSize: 12,
