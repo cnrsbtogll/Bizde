@@ -7,17 +7,19 @@ import { validPairingCode } from '@/lib/progress';
 // ponytail: no expo-router for 2 screens — App switches on isPaired.
 // Add a router only if screen count grows past 3.
 export function PairingScreen({ lang }: { lang: Lang }) {
-  const { signIn, displayName, createCode, joinCode, pairingCode } = useBizde();
-  const [name, setName] = useState(displayName);
+  const { signIn, setPartner, createCode, joinCode, pairingCode } = useBizde();
+  const [name, setName] = useState('');
+  const [partner, setPartnerName] = useState('');
   const [join, setJoin] = useState('');
   const [error, setError] = useState('');
 
-  const ensureName = (): boolean => {
-    if (name.trim().length === 0) {
+  const ensureNames = (): boolean => {
+    if (name.trim().length === 0 || partner.trim().length === 0) {
       setError(t(lang, 'pairing.invalid'));
       return false;
     }
     signIn(name);
+    setPartner(partner);
     return true;
   };
 
@@ -34,10 +36,19 @@ export function PairingScreen({ lang }: { lang: Lang }) {
           setError('');
         }}
       />
+      <TextInput
+        style={styles.input}
+        placeholder={t(lang, 'pairing.partnerPlaceholder')}
+        value={partner}
+        onChangeText={(v) => {
+          setPartnerName(v);
+          setError('');
+        }}
+      />
       <Button
         title={t(lang, 'pairing.createCode')}
         onPress={() => {
-          if (ensureName()) createCode();
+          if (ensureNames()) createCode();
         }}
       />
       {pairingCode !== null && (
@@ -60,7 +71,7 @@ export function PairingScreen({ lang }: { lang: Lang }) {
       <Button
         title={t(lang, 'pairing.joinCode')}
         onPress={() => {
-          if (!ensureName()) return;
+          if (!ensureNames()) return;
           if (!validPairingCode(join)) {
             setError(t(lang, 'pairing.invalidCode'));
             return;

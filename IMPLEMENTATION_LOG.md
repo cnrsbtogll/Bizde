@@ -22,7 +22,22 @@
   latest 0.87 breaks on `react-native/setup-env`); tsconfig needs explicit
   `"types": ["jest"]` + `"ignoreDeprecations": "6.0"` under TS 6.
 
+## 2026-09-11 — Slice 2: katalog + iddia/onay + hedef döngüsü (mock, local)
+- 12 default görev kartı (4 kategori: ev/ilgi/vakit/plan) + 5 ödül:
+  `src/mock/catalog.ts` — tipler Firestore `templates/*` ile birebir.
+- İddia + onay akışı (B): `claimTask` pending açar, bara girmez;
+  `approveActivity` kart aralığına clamp'ler, `rejectActivity` sessiz
+  (geçmişte gri). Takdir anında onaylı.
+- Stacked bar: kişi başına renk (teal/turuncu), isim+puan etiketi;
+  bekleyenler bar altında ayrı listede.
+- Hedef döngüsü: 400 dolunca ödül banner + `startNewGoal` (arşiv →
+  `pastGoals`, bar sıfırlanır). Custom kart: başlık + 10-50 puan + kategori.
+- Eşleşme: 2 isim (sen + partner), cihazda rol değiştirme ("Ben").
+  Firestore pairing (TTL'li kod) sadece `firebase.ts`'e eklenecek.
+- Gates: `tsc` 0 · `eslint` 0 · `jest --ci --runInBand` 23/23.
+
 ## Next
+- Kalıcılık (`zustand/persist` + AsyncStorage) — restartta veri siliniyor.
 - Firestore pairing lookup + activity sync when backend env exists (see
   `src/firebase.ts` ponytail note). Firestore rules per PRD §5.
 - No store build without explicit user approval.
