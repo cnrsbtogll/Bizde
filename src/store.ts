@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+import { persist, createJSONStorage } from 'zustand/middleware';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { APPRECIATION_POINTS, MAX_TASK_POINTS, MIN_TASK_POINTS } from '@/lib/progress';
 import { clampPoints, findTemplate, type TaskTemplate, type RewardTemplate } from '@/mock/catalog';
 import { signInAnon } from '@/firebase';
@@ -122,7 +124,9 @@ function otherMember(members: string[], name: string): string {
   return members.find((m) => m !== name) ?? name;
 }
 
-export const useBizde = create<BizdeState>()((set, get) => ({
+export const useBizde = create<BizdeState>()(
+  persist(
+    (set, get) => ({
   uid: null,
   members: [],
   actor: '',
@@ -525,7 +529,7 @@ export const useBizde = create<BizdeState>()((set, get) => ({
   reset: async () => {
     const { coupleId } = get();
     if (coupleId) {
-      await updateCoupleDocument(coupleId, { partnerJoined: false });
+      await updateCoupleDocument(coupleId, { partnerJoined: false }).catch(console.error);
     }
     if (unsubscribeFirestore) {
       unsubscribeFirestore();
@@ -549,16 +553,74 @@ export const useBizde = create<BizdeState>()((set, get) => ({
       pendingGoalProposal: null,
     });
   },
-}));
+}),
+    {
+      name: 'bizde-couple-store',
+      storage: createJSONStorage(() => AsyncStorage),
+      partialize: (state) => ({
+        uid: state.uid,
+        members: state.members,
+        actor: state.actor,
+        coupleId: state.coupleId,
+        pairingCode: state.pairingCode,
+        partnerJoined: state.partnerJoined,
+        isPaired: state.isPaired,
+        activeGoal: state.activeGoal,
+        pastGoals: state.pastGoals,
+        activities: state.activities,
+        customTemplates: state.customTemplates,
+        customRewards: state.customRewards,
+        taskPointOverrides: state.taskPointOverrides,
+        personalGoals: state.personalGoals,
+        pendingGoalProposal: state.pendingGoalProposal,
+      }),
+      onRehydrateStorage: () => (hydratedState) => {
+        if (hydratedState?.coupleId) {
+          startFirestoreSubscription(hydratedState.coupleId, hydratedState.actor);
+        }
+      },
+    }
+  )
+);
 
 let isSyncing = false;
 let unsubscribeFirestore: (() => void) | null = null;
 
+function startFirestoreSubscription(coupleId: string, currentActor?: string) {
+  if (unsubscribeFirestore) unsubscribeFirestore();
+  unsubscribeFirestore = subscribeToCouple(coupleId, (remoteData) => {
+    isSyncing = true;
+    const currentState = useBizde.getState();
+    let nextMembers = remoteData.members || [];
+
+    const effectiveActor = currentActor || currentState.actor;
+    if (effectiveActor && !nextMembers.includes(effectiveActor)) {
+      nextMembers = [...nextMembers, effectiveActor].slice(0, 2);
+      updateCoupleDocument(coupleId, { members: nextMembers }).catch(console.error);
+    }
+
+    useBizde.setState({
+      ...remoteData,
+      members: nextMembers,
+      partnerJoined: remoteData.partnerJoined ?? false,
+    });
+    setTimeout(() => {
+      isSyncing = false;
+    }, 0);
+  });
+}
+
 useBizde.subscribe((state, prevState) => {
   if (isSyncing) return;
   const currentCoupleId = state.coupleId;
-  if (currentCoupleId && currentCoupleId !== prevState.coupleId) {
-    if (unsubscribeFirestore) unsubscribeFirestore();
+  if (!currentCoupleId) {
+    if (unsubscribeFirestore) {
+      unsubscribeFirestore();
+      unsubscribeFirestore = null;
+    }
+    return;
+  }
+  if (currentCoupleId !== prevState.coupleId || !unsubscribeFirestore) {
     const sharedData: SharedCoupleData = {
       members: state.members,
       activeGoal: state.activeGoal,
@@ -572,24 +634,8 @@ useBizde.subscribe((state, prevState) => {
       partnerJoined: state.partnerJoined,
     };
     initCoupleDocument(currentCoupleId, sharedData).catch(console.error);
-    unsubscribeFirestore = subscribeToCouple(currentCoupleId, (remoteData) => {
-      isSyncing = true;
-      let nextMembers = remoteData.members || [];
-      
-      // ponytail: if I joined an existing couple and my name isn't there, add it and sync back.
-      if (state.actor && !nextMembers.includes(state.actor)) {
-        nextMembers = [...nextMembers, state.actor].slice(0, 2);
-        updateCoupleDocument(currentCoupleId, { members: nextMembers }).catch(console.error);
-      }
-      
-      useBizde.setState({
-        ...remoteData,
-        members: nextMembers,
-        partnerJoined: remoteData.partnerJoined ?? false,
-      });
-      setTimeout(() => { isSyncing = false; }, 0);
-    });
-  } else if (currentCoupleId && currentCoupleId === prevState.coupleId) {
+    startFirestoreSubscription(currentCoupleId, state.actor);
+  } else if (currentCoupleId === prevState.coupleId) {
     const sharedData: SharedCoupleData = {
       members: state.members,
       activeGoal: state.activeGoal,

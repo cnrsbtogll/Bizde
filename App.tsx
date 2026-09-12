@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+import { View, ActivityIndicator } from 'react-native';
 import { NavigationContainer, DefaultTheme } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
@@ -27,6 +29,26 @@ const theme = {
 
 export default function App() {
   const isPaired = useBizde((s) => s.isPaired);
+  const [hasHydrated, setHasHydrated] = useState(false);
+
+  useEffect(() => {
+    if (useBizde.persist?.hasHydrated()) {
+      setHasHydrated(true);
+      return;
+    }
+    const unsub = useBizde.persist?.onFinishHydration(() => {
+      setHasHydrated(true);
+    });
+    return () => unsub?.();
+  }, []);
+
+  if (!hasHydrated) {
+    return (
+      <View style={{ flex: 1, backgroundColor: colors.neutral[50], justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color={colors.emerald[600]} />
+      </View>
+    );
+  }
 
   return (
     <NavigationContainer theme={theme}>
