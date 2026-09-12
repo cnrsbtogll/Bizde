@@ -116,7 +116,7 @@ export function SettingsScreen({
       <View style={styles.card}>
         <View style={styles.settingRow}>
           <View style={styles.settingTextCol}>
-            <Text style={styles.settingTitle}>Bireysel Hedefler</Text>
+            <Text style={styles.settingTitle}>Bireysel Ödüller</Text>
             <Text style={styles.settingSubtitle}>
               Erkek ve kadının bireysel ödül kartlarını ana sayfada gösterir.
             </Text>

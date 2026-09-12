@@ -571,11 +571,11 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
         <View style={{ alignItems: 'center', marginBottom: 12 }}>
           <BouncyPressable
             variant="ghost"
-            title={showIndividualGoals ? "👀 Bireysel Hedefleri Kapat" : "👀 Bireysel Hedefleri Aç"}
+            title={showIndividualGoals ? "👀 Bireysel Ödülleri Kapat" : "👀 Bireysel Ödülleri Aç"}
             onPress={() => {
               Alert.alert(
-                "Bireysel Hedefler",
-                "Uygulamamızın temel amacı aranızda bir rekabet ve çatışma doğurmak değil, birlikte zaman geçirmektir. Eğer bireysel ödüller (erkeğin / kadının hedefleri) adil hissettirmiyor veya bir rekabet yaratıyorsa, sadece Ortak Hedefe odaklanmak için bu kartları tamamen kapatabilirsiniz. (Kapatıldığında iki taraf için de gizlenir ve tamamen adil olur.)",
+                "Bireysel Ödüller",
+                "Uygulamamızın temel amacı aranızda bir rekabet ve çatışma doğurmak değil, birlikte zaman geçirmektir. Eğer bireysel ödüller (erkeğin / kadının ödülleri) adil hissettirmiyor veya bir rekabet yaratıyorsa, sadece Ortak Hedefe odaklanmak için bu kartları tamamen kapatabilirsiniz. (Kapatıldığında iki taraf için de gizlenir ve tamamen adil olur.)",
                 [
                   { text: "Vazgeç", style: "cancel" },
                   {
@@ -1019,8 +1019,8 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
                     ? (lang === 'tr' ? '✏️ Ortak Hedefi Düzenle' : '✏️ Edit Common Goal')
                     : (lang === 'tr' ? '🏆 Yeni Ortak Hedef' : '🏆 New Common Goal'))
                   : (editingGoalTarget === femaleMember
-                    ? `🍷 ${femaleMember}'nin Hedefi`
-                    : `🎮 ${maleMember}'nin Hedefi`)}
+                    ? `🍷 ${femaleMember} İçin Ödül`
+                    : `🎮 ${maleMember} İçin Ödül`)}
               </Text>
               <BouncyPressable
                 variant="ghost"
@@ -1040,8 +1040,12 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
               keyboardShouldPersistTaps="handled"
               keyboardDismissMode="on-drag"
             >
-              {/* Ready-made Goal Packages - Filtered by Target */}
-              <Text style={styles.pkgSectionTitle}>🎁 Hazır Hedef Paketleri (Tek Tıkla Yükle)</Text>
+              {/* Ready-made Goal/Reward Packages - Filtered by Target */}
+              <Text style={styles.pkgSectionTitle}>
+                {editingGoalTarget === 'common'
+                  ? (lang === 'tr' ? '🎁 Hazır Hedef Paketleri (Tek Tıkla Yükle)' : '🎁 Ready Goal Packages (One-Tap Load)')
+                  : (lang === 'tr' ? '🎁 Hazır Ödül Paketleri (Tek Tıkla Yükle)' : '🎁 Ready Reward Packages (One-Tap Load)')}
+              </Text>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -1083,10 +1087,10 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
               {/* Goal Title Input + Quick Suggestions */}
               <Text style={styles.inputLabel}>
                 {editingGoalTarget === 'common'
-                  ? `🏆 ${t(lang, 'home.goal')} (Büyük Ödül - %100)`
+                  ? `🏆 ${t(lang, 'home.goal')} (Büyük Hedef - %100)`
                   : (editingGoalTarget === femaleMember
-                    ? `🍷 ${femaleMember}'nin Büyük Hedefi`
-                    : `🎮 ${maleMember}'nin Büyük Hedefi`)}
+                    ? `🍷 ${femaleMember} İçin Ödül`
+                    : `🎮 ${maleMember} İçin Ödül`)}
               </Text>
               <TextInput
                 style={styles.input}
@@ -1122,7 +1126,7 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
               <Text style={styles.inputLabel}>
                 {editingGoalTarget === 'common'
                   ? (lang === 'tr' ? '🎯 Ortak Hedef Puanı (150 - 600 XP)' : '🎯 Common Goal Points (150 - 600 XP)')
-                  : (lang === 'tr' ? '🎯 Kişisel Hedef Puanı (100 - 400 XP)' : '🎯 Personal Goal Points (100 - 400 XP)')}
+                  : (lang === 'tr' ? '🎯 Kişisel Ödül Puanı (100 - 400 XP)' : '🎯 Personal Reward Points (100 - 400 XP)')}
               </Text>
               <View style={styles.goalTargetRow}>
                 <Pressable

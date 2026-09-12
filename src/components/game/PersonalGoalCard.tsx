@@ -50,7 +50,7 @@ export function PersonalGoalCard({
         <View style={styles.badgeRow}>
           <Text style={styles.badgeEmoji}>{emoji}</Text>
           <Text style={[styles.memberLabel, { color: themeColor }]}>
-            {member.toUpperCase()}'NİN HEDEFİ
+            {member.toUpperCase()} İÇİN ÖDÜL
           </Text>
         </View>
         <Pressable
@@ -61,7 +61,7 @@ export function PersonalGoalCard({
           style={[styles.editBtn, { backgroundColor: isFemale ? colors.copper[50] : colors.emerald[50] }]}
           hitSlop={6}
           accessibilityRole="button"
-          accessibilityLabel={`${member} hedefini düzenle`}
+          accessibilityLabel={`${member} için ödülü düzenle`}
         >
           <Text style={[styles.editBtnText, { color: themeColor }]}>✏️ Düzenle</Text>
         </Pressable>
