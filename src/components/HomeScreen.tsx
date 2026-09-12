@@ -62,7 +62,6 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
     dismissPairingCode,
     members,
     actor,
-    reset,
     activeGoal,
     customTemplates,
     taskPointOverrides,

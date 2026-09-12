@@ -3,7 +3,7 @@
 // ponytail: Firestore pairing/sync lands here when a real backend is wired;
 // the store API already matches that shape, so no call-site churn then.
 import { getApps, initializeApp, type FirebaseApp } from 'firebase/app';
-import { initializeAuth, getReactNativePersistence, getAuth, signInAnonymously, type Auth } from 'firebase/auth';
+import * as firebaseAuth from 'firebase/auth';
 import { getFirestore, type Firestore } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -19,10 +19,10 @@ export function firebaseConfigured(): boolean {
 }
 
 let app: FirebaseApp | null = null;
-let auth: Auth | null = null;
+let auth: firebaseAuth.Auth | null = null;
 let db: Firestore | null = null;
 
-export function getFirebase(): { app: FirebaseApp; auth: Auth; db: Firestore } | null {
+export function getFirebase(): { app: FirebaseApp; auth: firebaseAuth.Auth; db: Firestore } | null {
   if (!firebaseConfigured()) {
     console.warn('[Firebase] Config missing, running local-only');
     return null;
@@ -39,11 +39,16 @@ export function getFirebase(): { app: FirebaseApp; auth: Auth; db: Firestore } |
 
     if (!auth) {
       try {
-        auth = initializeAuth(app, {
-          persistence: getReactNativePersistence(AsyncStorage),
-        });
+        const getReactNativePersistence = (firebaseAuth as unknown as { getReactNativePersistence?: (storage: unknown) => unknown }).getReactNativePersistence;
+        if (typeof getReactNativePersistence === 'function') {
+          auth = firebaseAuth.initializeAuth(app, {
+            persistence: getReactNativePersistence(AsyncStorage) as unknown as firebaseAuth.Persistence,
+          });
+        } else {
+          auth = firebaseAuth.getAuth(app);
+        }
       } catch {
-        auth = getAuth(app);
+        auth = firebaseAuth.getAuth(app);
       }
     }
 
@@ -66,7 +71,7 @@ export async function signInAnon(): Promise<string | null> {
     if (fb.auth.currentUser) {
       return fb.auth.currentUser.uid;
     }
-    const cred = await signInAnonymously(fb.auth);
+    const cred = await firebaseAuth.signInAnonymously(fb.auth);
     console.log('[Firebase] Signed in anonymously:', cred.user.uid);
     return cred.user.uid;
   } catch (err) {
