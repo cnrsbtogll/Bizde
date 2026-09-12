@@ -8,6 +8,7 @@
     "expo": "~57.0.21",
     "expo-haptics": "~57.0.2",
     "expo-status-bar": "~57.0.1",
+    "expo-updates": "~57.0.22",
     "firebase": "^12.19.0",
     "lottie-react-native": "~7.3.8",
     "react": "19.2.3",
