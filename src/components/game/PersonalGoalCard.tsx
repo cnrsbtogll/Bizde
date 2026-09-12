@@ -28,7 +28,7 @@ export function PersonalGoalCard({
   accentColor,
   badgeEmoji,
 }: PersonalGoalCardProps) {
-  const themeColor = accentColor ?? (isFemale ? colors.rose[500] : colors.emerald[600]);
+  const themeColor = accentColor ?? (isFemale ? colors.copper[500] : colors.emerald[600]);
   const emoji = badgeEmoji ?? (isFemale ? '🍷' : '🎮');
   const target = Math.max(1, goal.targetPoints);
   const percentage = Math.min(100, Math.round((points / target) * 100));
@@ -44,7 +44,7 @@ export function PersonalGoalCard({
   }));
 
   return (
-    <View style={[styles.card, { borderColor: isFemale ? colors.rose[100] : colors.emerald[100] }]}>
+    <View style={[styles.card, { borderColor: isFemale ? colors.copper[100] : colors.emerald[100] }]}>
       {/* Top Header Row */}
       <View style={styles.topRow}>
         <View style={styles.badgeRow}>
@@ -58,7 +58,7 @@ export function PersonalGoalCard({
             void Haptics.selectionAsync();
             onEdit();
           }}
-          style={styles.editBtn}
+          style={[styles.editBtn, { backgroundColor: isFemale ? colors.copper[50] : colors.emerald[50] }]}
           hitSlop={6}
           accessibilityRole="button"
           accessibilityLabel={`${member} hedefini düzenle`}
@@ -85,7 +85,7 @@ export function PersonalGoalCard({
         <Text style={styles.pointsText}>
           <Text style={[styles.boldPoints, { color: themeColor }]}>{points}</Text> / {target} XP
         </Text>
-        <View style={[styles.pctBadge, { backgroundColor: isFemale ? colors.rose[50] : colors.emerald[50] }]}>
+        <View style={[styles.pctBadge, { backgroundColor: isFemale ? colors.copper[50] : colors.emerald[50] }]}>
           <Text style={[styles.pctText, { color: themeColor }]}>%{percentage}</Text>
         </View>
       </View>

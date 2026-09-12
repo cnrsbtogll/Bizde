@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { useBizde } from '@/store';
 import { fetchCoupleDocument } from '@/services/firestore';
+import { signInAnon } from '@/firebase';
 import { t, type Lang } from '@/i18n/strings';
 import { validPairingCode } from '@/lib/progress';
 import { BouncyPressable } from './game/BouncyPressable';
@@ -39,18 +40,20 @@ export function PairingScreen({ lang = 'tr' }: { lang?: Lang }) {
   };
 
   const handleJoinCode = async () => {
-    if (!validPairingCode(join)) {
+    const cleanJoin = join.trim();
+    if (!validPairingCode(cleanJoin)) {
       setError(t(lang, 'pairing.invalidCode'));
       return;
     }
     setError('');
     setLoading(true);
     try {
-      const couple = await fetchCoupleDocument(`couple-${join}`);
+      await signInAnon();
+      const couple = await fetchCoupleDocument(`couple-${cleanJoin}`);
       if (couple && couple.members && couple.members.length > 1) {
         setFoundMembers(couple.members);
       } else {
-        const success = await joinCode(join);
+        const success = await joinCode(cleanJoin);
         if (!success) {
           setError(t(lang, 'pairing.wrongCode'));
         }
@@ -63,10 +66,11 @@ export function PairingScreen({ lang = 'tr' }: { lang?: Lang }) {
   };
 
   const handleSelectIdentity = async (chosenName: string) => {
+    const cleanJoin = join.trim();
     setError('');
     setLoading(true);
     try {
-      const success = await joinCode(join, chosenName);
+      const success = await joinCode(cleanJoin, chosenName);
       if (!success) {
         setError(t(lang, 'pairing.wrongCode'));
         setFoundMembers(null);
@@ -188,7 +192,7 @@ export function PairingScreen({ lang = 'tr' }: { lang?: Lang }) {
                 {foundMembers.map((m, idx) => (
                   <BouncyPressable
                     key={m}
-                    variant={idx === 0 ? 'primary' : 'copper'}
+                    variant={idx === 0 ? 'copper' : 'primary'}
                     title={`👤 ${m}`}
                     onPress={() => handleSelectIdentity(m)}
                     wrapperStyle={{ flex: 1 }}

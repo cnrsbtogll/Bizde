@@ -185,8 +185,10 @@ export const useBizde = create<BizdeState>()((set, get) => ({
   },
 
   joinCode: async (code, selectedActor) => {
-    if (!/^\d{6}$/.test(code)) return false;
-    const coupleId = `couple-${code}`;
+    const cleanCode = code.trim();
+    if (!/^\d{6}$/.test(cleanCode)) return false;
+    const coupleId = `couple-${cleanCode}`;
+    await signInAnon();
     const remoteData = await fetchCoupleDocument(coupleId);
     
     if (remoteData) {
@@ -199,7 +201,7 @@ export const useBizde = create<BizdeState>()((set, get) => ({
         ...remoteData,
         members,
         coupleId,
-        pairingCode: code,
+        pairingCode: cleanCode,
         isPaired: true,
         partnerJoined: true,
         actor: guestActor,
@@ -211,7 +213,7 @@ export const useBizde = create<BizdeState>()((set, get) => ({
 
     // Local / fallback
     const { pairingCode, members } = get();
-    if (pairingCode !== null && code === pairingCode) {
+    if (pairingCode !== null && cleanCode === pairingCode) {
       const guestActor = selectedActor || (members.length > 1 ? (members[1] ?? 'Partner') : (members[0] ?? 'Partner'));
       set({ coupleId, isPaired: true, partnerJoined: true, actor: guestActor });
       return true;

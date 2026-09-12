@@ -40,10 +40,7 @@ export async function initCoupleDocument(coupleId: string, initialData: SharedCo
   if (!fb) return;
   try {
     const docRef = doc(fb.db, 'couples', coupleId);
-    const snapshot = await getDoc(docRef);
-    if (!snapshot.exists()) {
-      await setDoc(docRef, cleanForFirestore(initialData));
-    }
+    await setDoc(docRef, cleanForFirestore(initialData), { merge: true });
   } catch (err) {
     console.error('Error init couple document:', err);
   }

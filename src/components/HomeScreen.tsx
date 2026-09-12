@@ -50,7 +50,7 @@ import { MilestoneRewardModal } from './game/MilestoneRewardModal';
 import { XPBurstOverlay, type BurstData } from './game/XPBurstOverlay';
 import { colors, radii, shadows } from '@/theme/tokens';
 
-const BAR_COLORS = [colors.emerald[600], colors.copper[500]];
+const BAR_COLORS = [colors.copper[500], colors.emerald[600]];
 
 export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
   const insets = useSafeAreaInsets();
@@ -607,6 +607,7 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
               isFemale={true}
               points={n1 ?? 0}
               goal={femaleGoal}
+              accentColor={BAR_COLORS[0]}
               onEdit={() => openEditPersonalGoalModal(femaleMember, true)}
             />
             <PersonalGoalCard
@@ -614,6 +615,7 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
               isFemale={false}
               points={n2 ?? 0}
               goal={maleGoal}
+              accentColor={BAR_COLORS[1]}
               onEdit={() => openEditPersonalGoalModal(maleMember, false)}
             />
           </View>
