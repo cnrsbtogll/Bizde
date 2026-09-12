@@ -80,7 +80,9 @@ interface BizdeState {
   taskPointOverrides: Record<string, number>;
   personalGoals: Record<string, Goal>;
   personalSpentPoints: Record<string, number>;
+  celebratedMilestones: string[];
   claimPersonalReward: (member: string) => boolean;
+  markMilestoneCelebrated: (key: string) => void;
   updateActiveGoal: (title: string, targetPoints: number, m25Title?: string, m60Title?: string) => boolean;
   updatePersonalGoal: (
     member: string,
@@ -144,6 +146,7 @@ export const useBizde = create<BizdeState>()(
   taskPointOverrides: {},
   personalGoals: {},
   personalSpentPoints: {},
+  celebratedMilestones: [],
   pendingGoalProposal: null,
 
   signIn: async (displayName) => {
@@ -400,6 +403,12 @@ export const useBizde = create<BizdeState>()(
     return true;
   },
 
+  markMilestoneCelebrated: (key) => {
+    const { celebratedMilestones } = get();
+    if (celebratedMilestones.includes(key)) return;
+    set({ celebratedMilestones: [...celebratedMilestones, key] });
+  },
+
   proposeGoal: (targetType, title, targetPoints, m25Title, m60Title, targetMember) => {
     const clean = title.trim();
     const minPts = targetType === 'common' ? 150 : 100;
@@ -586,6 +595,7 @@ export const useBizde = create<BizdeState>()(
       taskPointOverrides: {},
       personalGoals: {},
       personalSpentPoints: {},
+      celebratedMilestones: [],
       pendingGoalProposal: null,
     });
   },
@@ -609,6 +619,7 @@ export const useBizde = create<BizdeState>()(
         taskPointOverrides: state.taskPointOverrides,
         personalGoals: state.personalGoals,
         personalSpentPoints: state.personalSpentPoints,
+        celebratedMilestones: state.celebratedMilestones,
         pendingGoalProposal: state.pendingGoalProposal,
       }),
       onRehydrateStorage: () => (hydratedState) => {
@@ -640,6 +651,7 @@ function startFirestoreSubscription(coupleId: string, currentActor?: string) {
       ...remoteData,
       members: nextMembers,
       personalSpentPoints: remoteData.personalSpentPoints || currentState.personalSpentPoints || {},
+      celebratedMilestones: remoteData.celebratedMilestones || currentState.celebratedMilestones || [],
       partnerJoined: remoteData.partnerJoined ?? false,
     });
     setTimeout(() => {
@@ -669,6 +681,7 @@ useBizde.subscribe((state, prevState) => {
       taskPointOverrides: state.taskPointOverrides,
       personalGoals: state.personalGoals,
       personalSpentPoints: state.personalSpentPoints,
+      celebratedMilestones: state.celebratedMilestones,
       pendingGoalProposal: state.pendingGoalProposal,
       partnerJoined: state.partnerJoined,
     };
@@ -685,6 +698,7 @@ useBizde.subscribe((state, prevState) => {
       taskPointOverrides: state.taskPointOverrides,
       personalGoals: state.personalGoals,
       personalSpentPoints: state.personalSpentPoints,
+      celebratedMilestones: state.celebratedMilestones,
       pendingGoalProposal: state.pendingGoalProposal,
       partnerJoined: state.partnerJoined,
     };

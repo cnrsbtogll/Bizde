@@ -68,7 +68,9 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
     taskPointOverrides,
     personalGoals,
     personalSpentPoints,
+    celebratedMilestones,
     claimPersonalReward,
+    markMilestoneCelebrated,
     activities,
     claimTask,
     requestTask,
@@ -107,7 +109,6 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
   const [editingTask, setEditingTask] = useState<TaskTemplate | null>(null);
   const [editingTaskPoints, setEditingTaskPoints] = useState('');
   const [error, setError] = useState('');
-  const [celebratedGoalKey, setCelebratedGoalKey] = useState<string | null>(null);
   const [showCelebration, setShowCelebration] = useState(false);
   const [showAllHistory, setShowAllHistory] = useState(false);
   const [showAllPending, setShowAllPending] = useState(false);
@@ -118,7 +119,6 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
     pct: number;
     title: string;
   } | null>(null);
-  const [celebratedMilestones, setCelebratedMilestones] = useState<string[]>([]);
 
   const sendLoveReaction = (receiverName: string) => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
@@ -175,11 +175,11 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
   // Trigger celebration modal once per completed goal instance
   useEffect(() => {
     const currentGoalKey = `${activeGoal.title}-${activeGoal.targetPoints}`;
-    if (done && total > 0 && celebratedGoalKey !== currentGoalKey) {
-      setCelebratedGoalKey(currentGoalKey);
+    if (done && total > 0 && !celebratedMilestones.includes(currentGoalKey)) {
+      markMilestoneCelebrated(currentGoalKey);
       setShowCelebration(true);
     }
-  }, [done, total, activeGoal.title, activeGoal.targetPoints, celebratedGoalKey]);
+  }, [done, total, activeGoal.title, activeGoal.targetPoints, celebratedMilestones, markMilestoneCelebrated]);
 
   // Trigger milestone reward modal when 25% or 60% is reached
   useEffect(() => {
@@ -189,7 +189,7 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
     if (currentPct >= 60 && activeGoal.m60Title) {
       const m60Key = `${goalPrefix}-m60`;
       if (!celebratedMilestones.includes(m60Key)) {
-        setCelebratedMilestones((prev) => [...prev, m60Key]);
+        markMilestoneCelebrated(m60Key);
         setMilestoneReward({ pct: 60, title: activeGoal.m60Title });
         return;
       }
@@ -198,11 +198,11 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
     if (currentPct >= 25 && activeGoal.m25Title) {
       const m25Key = `${goalPrefix}-m25`;
       if (!celebratedMilestones.includes(m25Key)) {
-        setCelebratedMilestones((prev) => [...prev, m25Key]);
+        markMilestoneCelebrated(m25Key);
         setMilestoneReward({ pct: 25, title: activeGoal.m25Title });
       }
     }
-  }, [currentPct, total, target, activeGoal.title, activeGoal.targetPoints, activeGoal.m25Title, activeGoal.m60Title, celebratedMilestones]);
+  }, [currentPct, total, target, activeGoal.title, activeGoal.targetPoints, activeGoal.m25Title, activeGoal.m60Title, celebratedMilestones, markMilestoneCelebrated]);
 
   // Auto-dismiss and cleanup proposal feedback banner
   useEffect(() => {
@@ -417,7 +417,6 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
           return;
         }
         setShowCelebration(false);
-        setCelebratedGoalKey(null);
       }
     } else {
       const ok = updatePersonalGoal(editingGoalTarget, goalTitle, pts, m25Title, m60Title);
