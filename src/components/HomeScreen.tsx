@@ -48,12 +48,14 @@ import { TaskCard } from './game/TaskCard';
 import { CelebrationOverlay } from './game/CelebrationOverlay';
 import { MilestoneRewardModal } from './game/MilestoneRewardModal';
 import { XPBurstOverlay, type BurstData } from './game/XPBurstOverlay';
+import { SettingsScreen } from './SettingsScreen';
 import { colors, radii, shadows } from '@/theme/tokens';
 
 const BAR_COLORS = [colors.copper[500], colors.emerald[600]];
 
 export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
   const insets = useSafeAreaInsets();
+  const [activeTab, setActiveTab] = useState<'home' | 'settings'>('home');
   const {
     pairingCode,
     partnerJoined,
@@ -397,38 +399,28 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
       <View style={[styles.customHeaderBar, { paddingTop: insets.top + 6 }]}>
         <View style={styles.headerLeftContainer}>
           <Text style={styles.welcomeText}>
-            👋 {lang === 'tr' ? `Hoş geldin, ${actor || members[0] || ''}` : `Welcome, ${actor || members[0] || ''}`}
+            {activeTab === 'home'
+              ? `👋 ${lang === 'tr' ? `Hoş geldin, ${actor || members[0] || ''}` : `Welcome, ${actor || members[0] || ''}`}`
+              : `⚙️ ${lang === 'tr' ? 'Ayarlar' : 'Settings'}`}
           </Text>
         </View>
 
         <View style={styles.headerRightActions}>
           <StreakBadge streakDays={streak} label={lang === 'tr' ? 'Gün' : 'Days'} />
-          <Pressable
-            onPress={() => {
-              Alert.alert(
-                lang === 'tr' ? 'Eşleşmeden Çık' : 'Leave Couple',
-                lang === 'tr' ? 'Mevcut eşleşmeden çıkıp başlangıç ekranına dönmek istiyor musunuz?' : 'Do you want to leave the couple and return to the start screen?',
-                [
-                  { text: lang === 'tr' ? 'Vazgeç' : 'Cancel', style: 'cancel' },
-                  { text: lang === 'tr' ? 'Çıkış Yap' : 'Leave', style: 'destructive', onPress: () => reset() },
-                ]
-              );
-            }}
-            style={styles.headerLeaveBtn}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            accessibilityRole="button"
-            accessibilityLabel="Eşleşmeden Çık"
-          >
-            <Text style={styles.headerLeaveBtnText}>🚪 Çıkış</Text>
-          </Pressable>
         </View>
       </View>
 
-      <ScrollView
-        style={styles.scrollBox}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
+      {activeTab === 'settings' ? (
+        <SettingsScreen
+          showIndividualGoals={showIndividualGoals}
+          onToggleIndividualGoals={setShowIndividualGoals}
+        />
+      ) : (
+        <ScrollView
+          style={styles.scrollBox}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
 
         {pairingCode && !partnerJoined && (
           <View style={{ backgroundColor: '#ecfdf5', padding: 14, borderRadius: 16, marginBottom: 16, alignItems: 'center', borderColor: '#a7f3d0', borderWidth: 1.5, position: 'relative' }}>
@@ -881,6 +873,7 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
         )}
 
       </ScrollView>
+      )}
 
       {/* Task Picker Modal */}
       <Modal visible={taskModal} transparent animationType="slide" onRequestClose={() => setTaskModal(false)}>
@@ -1517,6 +1510,39 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
         />
       )}
 
+      {/* Bottom Navigation Bar */}
+      <View style={[styles.bottomTabBar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+        <Pressable
+          onPress={() => {
+            void Haptics.selectionAsync();
+            setActiveTab('home');
+          }}
+          style={[styles.tabItem, activeTab === 'home' && styles.tabItemActive]}
+          accessibilityRole="button"
+          accessibilityLabel="Ana Sayfa"
+        >
+          <Text style={[styles.tabIcon, activeTab === 'home' && styles.tabIconActive]}>🏠</Text>
+          <Text style={[styles.tabLabel, activeTab === 'home' && styles.tabLabelActive]}>
+            {lang === 'tr' ? 'Ana Sayfa' : 'Home'}
+          </Text>
+        </Pressable>
+
+        <Pressable
+          onPress={() => {
+            void Haptics.selectionAsync();
+            setActiveTab('settings');
+          }}
+          style={[styles.tabItem, activeTab === 'settings' && styles.tabItemActive]}
+          accessibilityRole="button"
+          accessibilityLabel="Ayarlar"
+        >
+          <Text style={[styles.tabIcon, activeTab === 'settings' && styles.tabIconActive]}>⚙️</Text>
+          <Text style={[styles.tabLabel, activeTab === 'settings' && styles.tabLabelActive]}>
+            {lang === 'tr' ? 'Ayarlar' : 'Settings'}
+          </Text>
+        </Pressable>
+      </View>
+
       {/* Floating XP Burst and Love Reactions Overlay */}
       <XPBurstOverlay burst={burstData} onComplete={() => setBurstData(null)} />
     </View>
@@ -1527,6 +1553,42 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: colors.neutral[50],
+  },
+  bottomTabBar: {
+    flexDirection: 'row',
+    backgroundColor: colors.white,
+    borderTopWidth: 1,
+    borderTopColor: colors.neutral[200],
+    paddingTop: 8,
+    paddingHorizontal: 32,
+    justifyContent: 'space-around',
+    alignItems: 'center',
+    ...shadows.card,
+  },
+  tabItem: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 20,
+    gap: 3,
+  },
+  tabItemActive: {},
+  tabIcon: {
+    fontSize: 22,
+    opacity: 0.4,
+  },
+  tabIconActive: {
+    opacity: 1,
+    transform: [{ scale: 1.08 }],
+  },
+  tabLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.neutral[400],
+  },
+  tabLabelActive: {
+    color: colors.emerald[600],
+    fontWeight: '800',
   },
   scrollBox: {
     flex: 1,
