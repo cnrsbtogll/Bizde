@@ -13,8 +13,18 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import { colors, radii, spring, shadows } from '@/theme/tokens';
 
-export type ButtonVariant = 'primary' | 'secondary' | 'success' | 'danger' | 'ghost' | 'amber' | 'love';
+export type ButtonVariant =
+  | 'primary'
+  | 'secondary'
+  | 'copper'
+  | 'success'
+  | 'danger'
+  | 'ghost'
+  | 'amber'
+  | 'love'
+  | 'gold';
 
 interface BouncyPressableProps extends PropsWithChildren {
   onPress: () => void;
@@ -27,12 +37,6 @@ interface BouncyPressableProps extends PropsWithChildren {
   disabled?: boolean;
 }
 
-const SPRING_CONFIG = {
-  damping: 12,
-  stiffness: 300,
-  mass: 0.7,
-};
-
 export function BouncyPressable({
   onPress,
   title,
@@ -40,7 +44,7 @@ export function BouncyPressable({
   style,
   wrapperStyle,
   textStyle,
-  hapticStyle = Haptics.ImpactFeedbackStyle.Medium,
+  hapticStyle = Haptics.ImpactFeedbackStyle.Light,
   disabled = false,
   children,
 }: BouncyPressableProps) {
@@ -58,18 +62,18 @@ export function BouncyPressable({
 
   const handlePressIn = () => {
     if (disabled) return;
-    scale.value = withSpring(0.94, SPRING_CONFIG);
-    translateY.value = withSpring(4, SPRING_CONFIG);
+    scale.value = withSpring(0.96, spring.press);
+    translateY.value = withSpring(1.5, spring.press);
     void Haptics.impactAsync(hapticStyle);
   };
 
   const handlePressOut = () => {
     if (disabled) return;
-    scale.value = withSpring(1, SPRING_CONFIG);
-    translateY.value = withSpring(0, SPRING_CONFIG);
+    scale.value = withSpring(1, spring.press);
+    translateY.value = withSpring(0, spring.press);
   };
 
-  const colors = VARIANT_COLORS[variant] ?? VARIANT_COLORS.primary;
+  const variantStyle = VARIANT_STYLES[variant] ?? VARIANT_STYLES.primary;
 
   return (
     <Pressable
@@ -83,9 +87,10 @@ export function BouncyPressable({
         style={[
           styles.buttonBase,
           {
-            backgroundColor: colors.bg,
-            borderBottomColor: colors.shadow,
+            backgroundColor: variantStyle.bg,
+            borderColor: variantStyle.border,
           },
+          variantStyle.shadow,
           animatedStyle,
           style,
         ]}
@@ -97,7 +102,7 @@ export function BouncyPressable({
             numberOfLines={1}
             adjustsFontSizeToFit
             minimumFontScale={0.8}
-            style={[styles.title, { color: colors.text }, textStyle]}
+            style={[styles.title, { color: variantStyle.text }, textStyle]}
           >
             {title}
           </Text>
@@ -107,44 +112,75 @@ export function BouncyPressable({
   );
 }
 
-const VARIANT_COLORS: Record<
+const VARIANT_STYLES: Record<
   ButtonVariant,
-  { bg: string; shadow: string; text: string }
+  { bg: string; border: string; text: string; shadow?: ViewStyle }
 > = {
   primary: {
-    bg: '#2563eb',
-    shadow: '#1d4ed8',
-    text: '#ffffff',
+    bg: colors.emerald[600],
+    border: colors.emerald[700],
+    text: colors.white,
+    shadow: shadows.emeraldGlow,
   },
-  love: {
-    bg: '#ff3366',
-    shadow: '#cc1f4a',
-    text: '#ffffff',
+  copper: {
+    bg: colors.copper[500],
+    border: colors.copper[600],
+    text: colors.white,
+    shadow: shadows.copperGlow,
   },
   secondary: {
-    bg: '#0f766e',
-    shadow: '#115e59',
-    text: '#ffffff',
+    bg: colors.emerald[100],
+    border: colors.emerald[200],
+    text: colors.emerald[700],
+    shadow: shadows.soft,
+  },
+  love: {
+    bg: colors.rose[500],
+    border: colors.rose[600],
+    text: colors.white,
+    shadow: {
+      shadowColor: colors.rose[500],
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.25,
+      shadowRadius: 10,
+      elevation: 4,
+    },
+  },
+  gold: {
+    bg: colors.gold[500],
+    border: colors.gold[600],
+    text: colors.neutral[900],
+    shadow: {
+      shadowColor: colors.gold[500],
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.25,
+      shadowRadius: 10,
+      elevation: 4,
+    },
   },
   success: {
-    bg: '#10b981',
-    shadow: '#059669',
-    text: '#ffffff',
+    bg: colors.emerald[500],
+    border: colors.emerald[600],
+    text: colors.white,
+    shadow: shadows.soft,
   },
   amber: {
-    bg: '#f59e0b',
-    shadow: '#d97706',
-    text: '#ffffff',
+    bg: colors.copper[400],
+    border: colors.copper[500],
+    text: colors.white,
+    shadow: shadows.copperGlow,
   },
   danger: {
-    bg: '#ef4444',
-    shadow: '#b91c1c',
-    text: '#ffffff',
+    bg: '#DC2626',
+    border: '#B91C1C',
+    text: colors.white,
+    shadow: shadows.soft,
   },
   ghost: {
-    bg: '#fff1f2',
-    shadow: '#fecdd3',
-    text: '#e11d48',
+    bg: colors.neutral[100],
+    border: colors.neutral[200],
+    text: colors.emerald[700],
+    shadow: undefined,
   },
 };
 
@@ -156,14 +192,14 @@ const styles = StyleSheet.create({
     opacity: 0.5,
   },
   buttonBase: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    borderBottomWidth: 3,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    borderRadius: radii.md,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
-    gap: 6,
+    gap: 8,
   },
   title: {
     fontSize: 14,
@@ -171,3 +207,4 @@ const styles = StyleSheet.create({
     letterSpacing: 0.2,
   },
 });
+

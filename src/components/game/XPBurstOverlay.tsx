@@ -8,8 +8,9 @@ import Animated, {
   withSequence,
   withDelay,
   Easing,
-  runOnJS,
 } from 'react-native-reanimated';
+import { scheduleOnRN } from 'react-native-worklets';
+import { colors, radii, shadows } from '@/theme/tokens';
 
 export interface BurstData {
   id: string;
@@ -48,7 +49,7 @@ export function XPBurstOverlay({ burst, onComplete }: XPBurstOverlayProps) {
         withTiming(1, { duration: 150 }),
         withDelay(600, withTiming(0, { duration: 300 }, (finished) => {
           if (finished) {
-            runOnJS(onComplete)();
+            scheduleOnRN(onComplete);
           }
         }))
       );
@@ -120,35 +121,28 @@ const styles = StyleSheet.create({
     zIndex: 9999,
   },
   burstBadge: {
-    backgroundColor: '#ff3b69',
-    paddingHorizontal: 22,
-    paddingVertical: 12,
-    borderRadius: 24,
+    backgroundColor: colors.copper[500],
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: radii.xl,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#ff3b69',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.45,
-    shadowRadius: 16,
-    elevation: 12,
-    borderWidth: 2.5,
-    borderColor: '#ffffff',
+    ...shadows.copperGlow,
+    borderWidth: 2,
+    borderColor: colors.white,
   },
   burstEmoji: {
-    fontSize: 32,
+    fontSize: 34,
     marginBottom: 2,
   },
   burstText: {
-    color: '#ffffff',
+    color: colors.white,
     fontSize: 22,
     fontWeight: '900',
     letterSpacing: 0.5,
-    textShadowColor: 'rgba(0,0,0,0.25)',
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
   },
   burstSubText: {
-    color: '#ffe4e9',
+    color: colors.copper[100],
     fontSize: 12,
     fontWeight: '800',
     marginTop: 2,
@@ -159,3 +153,4 @@ const styles = StyleSheet.create({
     fontSize: 26,
   },
 });
+

@@ -7,6 +7,7 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import type { Goal } from '@/store';
+import { colors, radii, spring, shadows } from '@/theme/tokens';
 
 interface PersonalGoalCardProps {
   member: string;
@@ -18,11 +19,6 @@ interface PersonalGoalCardProps {
   badgeEmoji?: string;
 }
 
-const SPRING_CONFIG = {
-  damping: 18,
-  stiffness: 140,
-};
-
 export function PersonalGoalCard({
   member,
   isFemale = false,
@@ -32,7 +28,7 @@ export function PersonalGoalCard({
   accentColor,
   badgeEmoji,
 }: PersonalGoalCardProps) {
-  const themeColor = accentColor ?? (isFemale ? '#E11D48' : '#0284C7');
+  const themeColor = accentColor ?? (isFemale ? colors.rose[500] : colors.emerald[600]);
   const emoji = badgeEmoji ?? (isFemale ? '🍷' : '🎮');
   const target = Math.max(1, goal.targetPoints);
   const percentage = Math.min(100, Math.round((points / target) * 100));
@@ -40,7 +36,7 @@ export function PersonalGoalCard({
   const progressAnim = useSharedValue(percentage);
 
   useEffect(() => {
-    progressAnim.value = withSpring(percentage, SPRING_CONFIG);
+    progressAnim.value = withSpring(percentage, spring.settle);
   }, [percentage, progressAnim]);
 
   const fillStyle = useAnimatedStyle(() => ({
@@ -48,7 +44,7 @@ export function PersonalGoalCard({
   }));
 
   return (
-    <View style={[styles.card, { borderColor: isFemale ? '#FCE7F3' : '#E0F2FE' }]}>
+    <View style={[styles.card, { borderColor: isFemale ? colors.rose[100] : colors.emerald[100] }]}>
       {/* Top Header Row */}
       <View style={styles.topRow}>
         <View style={styles.badgeRow}>
@@ -89,7 +85,7 @@ export function PersonalGoalCard({
         <Text style={styles.pointsText}>
           <Text style={[styles.boldPoints, { color: themeColor }]}>{points}</Text> / {target} XP
         </Text>
-        <View style={[styles.pctBadge, { backgroundColor: isFemale ? '#FFF1F2' : '#F0F9FF' }]}>
+        <View style={[styles.pctBadge, { backgroundColor: isFemale ? colors.rose[50] : colors.emerald[50] }]}>
           <Text style={[styles.pctText, { color: themeColor }]}>%{percentage}</Text>
         </View>
       </View>
@@ -99,16 +95,12 @@ export function PersonalGoalCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 14,
-    padding: 10,
-    borderWidth: 1.5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    elevation: 2,
-    gap: 6,
+    backgroundColor: colors.white,
+    borderRadius: radii.md,
+    padding: 12,
+    borderWidth: 1,
+    ...shadows.soft,
+    gap: 8,
   },
   topRow: {
     flexDirection: 'row',
@@ -118,38 +110,39 @@ const styles = StyleSheet.create({
   badgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 6,
   },
   badgeEmoji: {
-    fontSize: 13,
+    fontSize: 14,
   },
   memberLabel: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '800',
-    letterSpacing: 0.4,
+    letterSpacing: 0.5,
   },
   editBtn: {
-    paddingHorizontal: 7,
+    paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: 6,
-    backgroundColor: '#f8fafc',
+    borderRadius: radii.xs,
+    backgroundColor: colors.neutral[100],
   },
   editBtnText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '700',
   },
   goalTitle: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '800',
-    color: '#0f172a',
+    color: colors.neutral[900],
+    letterSpacing: -0.1,
   },
   trackWrapper: {
-    height: 7,
-    borderRadius: 4,
+    height: 8,
+    borderRadius: radii.full,
     overflow: 'hidden',
     position: 'relative',
-    backgroundColor: '#f1f5f9',
-    marginTop: 1,
+    backgroundColor: colors.neutral[100],
+    marginTop: 2,
   },
   trackBg: {
     position: 'absolute',
@@ -157,11 +150,11 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#f1f5f9',
+    backgroundColor: colors.neutral[100],
   },
   trackFill: {
     height: '100%',
-    borderRadius: 4,
+    borderRadius: radii.full,
   },
   statsRow: {
     flexDirection: 'row',
@@ -169,21 +162,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   pointsText: {
-    fontSize: 11,
-    color: '#64748b',
-    fontWeight: '500',
+    fontSize: 12,
+    color: colors.neutral[500],
+    fontWeight: '600',
   },
   boldPoints: {
-    fontSize: 12,
-    fontWeight: '800',
+    fontSize: 13,
+    fontWeight: '900',
   },
   pctBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 1,
-    borderRadius: 5,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: radii.xs,
   },
   pctText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '800',
   },
 });
+

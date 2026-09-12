@@ -36,15 +36,15 @@ describe('pairing', () => {
     expect(s.coupleId).toBe(`couple-${code}`);
     expect(s.members).toEqual(['Ayşe', 'Hakan']);
   });
-  it('joinCode rejects bad codes, accepts the generated one', () => {
+  it('joinCode rejects bad codes, accepts the generated one', async () => {
     useBizde.getState().signIn('Elif');
-    expect(useBizde.getState().joinCode('123')).toBe(false);
+    expect(await useBizde.getState().joinCode('123')).toBe(false);
     expect(useBizde.getState().isPaired).toBe(false);
     useBizde.getState().signIn('Elif');
     const code = useBizde.getState().createCode();
     useBizde.getState().reset();
     useBizde.getState().signIn('Elif');
-    expect(useBizde.getState().joinCode(code)).toBe(true);
+    expect(await useBizde.getState().joinCode(code)).toBe(true);
     expect(useBizde.getState().isPaired).toBe(true);
   });
 });
@@ -209,7 +209,7 @@ describe('custom rewards', () => {
 
   it('updates personal goal for a member and retrieves defaults', () => {
     const { getPersonalGoal } = require('@/store');
-    pairedAs('Emre', 'Cansu');
+    pairedAs('Cansu', 'Emre');
     const s = useBizde.getState();
     const g1 = getPersonalGoal(s.personalGoals, 'Emre', s.members);
     const g2 = getPersonalGoal(s.personalGoals, 'Cansu', s.members);

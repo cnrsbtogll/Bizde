@@ -5,7 +5,7 @@ export type Lang = 'tr' | 'en';
 type Dict = { [k: string]: string | Dict };
 
 const tr: Dict = {
-  app: { name: 'Bizde' },
+  app: { name: 'Bizdee' },
   pairing: {
     title: 'Eşinle eşleş',
     subtitle: 'Tek ortak hedef, tek çubuk. Borç-alacak yok.',
@@ -78,7 +78,7 @@ const tr: Dict = {
 };
 
 const en: Dict = {
-  app: { name: 'Bizde' },
+  app: { name: 'Bizdee' },
   pairing: {
     title: 'Pair with your partner',
     subtitle: 'One shared goal, one bar. No scorekeeping.',

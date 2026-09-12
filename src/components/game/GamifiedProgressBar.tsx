@@ -14,6 +14,7 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import { MILESTONES, type Milestone } from '@/lib/progress';
+import { colors, radii, spring, shadows } from '@/theme/tokens';
 
 interface GamifiedProgressBarProps {
   total: number;
@@ -32,11 +33,6 @@ interface GamifiedProgressBarProps {
   onEditGoal?: () => void;
 }
 
-const SPRING_CONFIG = {
-  damping: 18,
-  stiffness: 140,
-};
-
 export function GamifiedProgressBar({
   total,
   target,
@@ -47,8 +43,8 @@ export function GamifiedProgressBar({
   member1Points,
   member2Name,
   member2Points,
-  color1 = '#0284C7',
-  color2 = '#E11D48',
+  color1 = colors.emerald[600],
+  color2 = colors.copper[500],
   onMilestonePress,
   onAdjustTarget,
   onEditGoal,
@@ -60,8 +56,8 @@ export function GamifiedProgressBar({
   const animatedP1Width = useSharedValue(0);
 
   useEffect(() => {
-    animatedTotalWidth.value = withSpring(fraction * 100, SPRING_CONFIG);
-    animatedP1Width.value = withSpring(f1 * 100, SPRING_CONFIG);
+    animatedTotalWidth.value = withSpring(fraction * 100, spring.settle);
+    animatedP1Width.value = withSpring(f1 * 100, spring.settle);
   }, [fraction, f1, animatedTotalWidth, animatedP1Width]);
 
   const totalFillStyle = useAnimatedStyle(() => ({
@@ -240,18 +236,14 @@ export function GamifiedProgressBar({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 10,
-    paddingBottom: 14,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
-    borderWidth: 1.5,
-    borderColor: '#e2e8f0',
-    gap: 8,
+    backgroundColor: colors.white,
+    borderRadius: radii.lg,
+    padding: 14,
+    paddingBottom: 16,
+    ...shadows.card,
+    borderWidth: 1,
+    borderColor: colors.neutral[200],
+    gap: 10,
   },
   topHeaderRow: {
     flexDirection: 'row',
@@ -261,34 +253,35 @@ const styles = StyleSheet.create({
   badgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
   },
   badgeEmoji: {
-    fontSize: 13,
+    fontSize: 14,
   },
   badgeLabel: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#0f766e',
-    letterSpacing: 0.5,
+    color: colors.emerald[700],
+    letterSpacing: 0.6,
   },
   editBtn: {
-    backgroundColor: '#f0fdfa',
-    borderColor: '#ccfbf1',
+    backgroundColor: colors.emerald[50],
+    borderColor: colors.emerald[200],
     borderWidth: 1,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radii.sm,
   },
   editBtnText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '700',
-    color: '#0f766e',
+    color: colors.emerald[700],
   },
   goalMainTitle: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '800',
-    color: '#0f172a',
+    color: colors.neutral[900],
+    letterSpacing: -0.2,
   },
   milestonesMiniRow: {
     flexDirection: 'row',
@@ -296,17 +289,17 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
   },
   miniMilestonePill: {
-    backgroundColor: '#f8fafc',
-    borderColor: '#e2e8f0',
+    backgroundColor: colors.neutral[100],
+    borderColor: colors.neutral[200],
     borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 7,
+    borderRadius: radii.sm,
+    paddingHorizontal: 8,
     paddingVertical: 3,
   },
   miniMilestoneText: {
-    fontSize: 10.5,
+    fontSize: 11,
     fontWeight: '700',
-    color: '#475569',
+    color: colors.neutral[700],
   },
   targetRow: {
     flexDirection: 'row',
@@ -315,62 +308,64 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   targetBadge: {
-    backgroundColor: '#fef3c7',
-    borderColor: '#fde68a',
+    backgroundColor: colors.copper[50],
+    borderColor: colors.copper[200],
     borderWidth: 1,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radii.sm,
   },
   targetBadgeText: {
     fontSize: 10,
     fontWeight: '800',
-    color: '#b45309',
-    letterSpacing: 0.5,
+    color: colors.copper[700],
+    letterSpacing: 0.6,
   },
   targetControlGroup: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
   },
   stepperBtn: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#f1f5f9',
+    width: 26,
+    height: 26,
+    borderRadius: radii.full,
+    backgroundColor: colors.neutral[100],
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#cbd5e1',
+    borderColor: colors.neutral[200],
   },
   stepperBtnText: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '800',
-    color: '#334155',
-    lineHeight: 16,
+    color: colors.neutral[800],
+    lineHeight: 18,
   },
   pointsCounter: {
     fontSize: 13,
-    color: '#64748b',
-    fontWeight: '500',
+    color: colors.neutral[500],
+    fontWeight: '600',
   },
   boldPoints: {
-    fontSize: 16,
-    fontWeight: '800',
-    color: '#0f172a',
+    fontSize: 17,
+    fontWeight: '900',
+    color: colors.neutral[900],
   },
   track: {
-    height: 18,
-    backgroundColor: '#f1f5f9',
-    borderRadius: 9,
+    height: 20,
+    backgroundColor: colors.neutral[100],
+    borderRadius: radii.full,
     overflow: 'visible',
     position: 'relative',
     justifyContent: 'center',
-    marginBottom: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: colors.neutral[200],
   },
   filledTrack: {
     height: '100%',
-    borderRadius: 9,
+    borderRadius: radii.full,
     flexDirection: 'row',
     overflow: 'hidden',
   },
@@ -385,46 +380,43 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   pinDot: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#ffffff',
+    borderColor: colors.white,
   },
   pinReached: {
-    backgroundColor: '#f59e0b',
-    shadowColor: '#f59e0b',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.4,
-    shadowRadius: 4,
-    elevation: 4,
+    backgroundColor: colors.copper[500],
+    ...shadows.copperGlow,
   },
   pinLocked: {
-    backgroundColor: '#cbd5e1',
+    backgroundColor: colors.neutral[300],
   },
   pinIcon: {
-    fontSize: 10,
-    color: '#ffffff',
+    fontSize: 11,
+    color: colors.white,
     fontWeight: '900',
   },
   pinPctLabel: {
-    fontSize: 9,
+    fontSize: 9.5,
     fontWeight: '700',
-    color: '#94a3b8',
+    color: colors.neutral[400],
     marginTop: 2,
     textAlign: 'center',
     width: 32,
   },
   pinPctLabelReached: {
-    color: '#b45309',
+    color: colors.copper[700],
+    fontWeight: '800',
   },
   legendRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 4,
+    paddingTop: 2,
   },
   legendItem: {
     flexDirection: 'row',
@@ -438,16 +430,17 @@ const styles = StyleSheet.create({
   },
   legendText: {
     fontSize: 13,
-    color: '#475569',
-    fontWeight: '500',
+    color: colors.neutral[600],
+    fontWeight: '600',
   },
   legendValue: {
-    fontWeight: '700',
-    color: '#0f172a',
+    fontWeight: '800',
+    color: colors.neutral[900],
   },
   pctBadge: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: '#0f766e',
+    fontSize: 15,
+    fontWeight: '900',
+    color: colors.emerald[700],
   },
 });
+

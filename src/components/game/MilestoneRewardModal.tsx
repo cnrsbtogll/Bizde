@@ -4,6 +4,7 @@ import LottieView from 'lottie-react-native';
 import * as Haptics from 'expo-haptics';
 import { BouncyPressable } from './BouncyPressable';
 import confettiSource from '../../../assets/animations/confetti.json';
+import { colors, radii, shadows } from '@/theme/tokens';
 
 interface MilestoneRewardModalProps {
   visible: boolean;
@@ -63,7 +64,7 @@ export function MilestoneRewardModal({
 
           <View style={styles.actions}>
             <BouncyPressable
-              variant="love"
+              variant="copper"
               title={`${emoji} Molayı Başlat & Kutla`}
               onPress={onClaimBreak}
               style={styles.button}
@@ -85,40 +86,33 @@ export function MilestoneRewardModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    backgroundColor: 'rgba(3, 29, 33, 0.75)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
   },
   dialogCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 28,
+    backgroundColor: colors.white,
+    borderRadius: radii.xl,
     padding: 24,
     alignItems: 'center',
     width: '100%',
     maxWidth: 340,
-    shadowColor: '#ff3366',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 10,
-    borderWidth: 2,
-    borderColor: '#fed7aa',
+    ...shadows.floating,
+    borderWidth: 1.5,
+    borderColor: colors.copper[200],
   },
   iconCircle: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#fff7ed',
+    backgroundColor: colors.copper[50],
     borderWidth: 2,
-    borderColor: '#fed7aa',
+    borderColor: colors.copper[200],
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 12,
-    shadowColor: '#f97316',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
+    ...shadows.copperGlow,
   },
   iconEmoji: {
     fontSize: 40,
@@ -126,14 +120,14 @@ const styles = StyleSheet.create({
   badgeLabel: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#ea580c',
+    color: colors.copper[600],
     letterSpacing: 1.2,
     marginBottom: 6,
   },
   rewardTitle: {
     fontSize: 22,
     fontWeight: '900',
-    color: '#0f172a',
+    color: colors.neutral[900],
     textAlign: 'center',
     marginBottom: 10,
     letterSpacing: -0.3,
@@ -141,7 +135,7 @@ const styles = StyleSheet.create({
   description: {
     fontSize: 14,
     fontWeight: '500',
-    color: '#475569',
+    color: colors.neutral[600],
     textAlign: 'center',
     lineHeight: 20,
     marginBottom: 22,
@@ -152,8 +146,8 @@ const styles = StyleSheet.create({
   },
   button: {
     width: '100%',
-    minHeight: 46,
-    borderRadius: 14,
+    minHeight: 48,
+    borderRadius: radii.md,
   },
   btnText: {
     fontSize: 15,
@@ -161,6 +155,7 @@ const styles = StyleSheet.create({
   },
   secondaryBtn: {
     width: '100%',
-    minHeight: 40,
+    minHeight: 42,
   },
 });
+

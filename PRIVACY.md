@@ -1,12 +1,11 @@
-# Privacy Policy — Bizde
+# Privacy Policy — Bizdee
 
-Effective date: September 11, 2026
+Last updated: September 2026
 Contact: https://github.com/cnrsbtogll/Bizde/issues
 
-Bizde is a shared-goal app for couples: two people collect points toward
-a common goal and unlock a shared reward.
-
-## How your data is handled
+Bizdee is a shared-goal app for couples: two people collect points toward
+a common relationship reward. We respect your privacy. This policy explains
+what data we collect, why, and how we handle it.
 - **Without a configured backend (demo mode):** everything (names,
   tasks, points, goals) stays on your device only.
 - **With Firebase configured:** the couple's shared data (member names,

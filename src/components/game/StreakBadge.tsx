@@ -8,6 +8,7 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import flameSource from '../../../assets/animations/flame.json';
+import { colors, radii, spring } from '@/theme/tokens';
 
 interface StreakBadgeProps {
   streakDays: number;
@@ -20,8 +21,8 @@ export function StreakBadge({ streakDays, label = 'Seri' }: StreakBadgeProps) {
   useEffect(() => {
     if (streakDays > 0) {
       pulseScale.value = withSequence(
-        withSpring(1.2, { damping: 6, stiffness: 200 }),
-        withSpring(1, { damping: 10, stiffness: 200 })
+        withSpring(1.15, spring.bouncy),
+        withSpring(1, spring.settle)
       );
     }
   }, [streakDays, pulseScale]);
@@ -53,38 +54,39 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#fff7ed',
-    borderColor: '#fed7aa',
+    backgroundColor: colors.copper[50],
+    borderColor: colors.copper[200],
     borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    height: 28,
-    gap: 4,
+    borderRadius: radii.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    height: 30,
+    gap: 5,
   },
   lottieContainer: {
-    width: 16,
-    height: 16,
+    width: 18,
+    height: 18,
     justifyContent: 'center',
     alignItems: 'center',
   },
   flame: {
-    width: 16,
-    height: 16,
+    width: 18,
+    height: 18,
   },
   streakText: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   streakNumber: {
-    fontSize: 12,
-    fontWeight: '800',
-    color: '#ea580c',
+    fontSize: 13,
+    fontWeight: '900',
+    color: colors.copper[600],
   },
   streakLabel: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '800',
-    color: '#c2410c',
+    color: colors.copper[700],
     textTransform: 'uppercase',
   },
 });
+

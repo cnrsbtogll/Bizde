@@ -5,6 +5,7 @@ import * as Haptics from 'expo-haptics';
 import { BouncyPressable } from './BouncyPressable';
 import confettiSource from '../../../assets/animations/confetti.json';
 import trophySource from '../../../assets/animations/trophy.json';
+import { colors, radii, shadows } from '@/theme/tokens';
 
 interface CelebrationOverlayProps {
   visible: boolean;
@@ -18,7 +19,7 @@ interface CelebrationOverlayProps {
 export function CelebrationOverlay({
   visible,
   title,
-  subtitle = '400 Puan Barajını Aştınız!',
+  subtitle = 'Hedef Puan Barajını Aştınız!',
   onNewGoal,
   onClose,
   newGoalButtonText = 'Yeni Hedef Seç',
@@ -66,7 +67,7 @@ export function CelebrationOverlay({
 
           <View style={styles.actions}>
             <BouncyPressable
-              variant="amber"
+              variant="copper"
               title={newGoalButtonText}
               onPress={onNewGoal}
               style={styles.button}
@@ -88,25 +89,21 @@ export function CelebrationOverlay({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.75)',
+    backgroundColor: 'rgba(3, 29, 33, 0.75)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
   },
   dialogCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 28,
+    backgroundColor: colors.white,
+    borderRadius: radii.xl,
     padding: 24,
     alignItems: 'center',
     width: '100%',
     maxWidth: 340,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.25,
-    shadowRadius: 20,
-    elevation: 10,
-    borderWidth: 2,
-    borderColor: '#fef08a',
+    ...shadows.floating,
+    borderWidth: 1.5,
+    borderColor: colors.gold[300],
   },
   trophyWrapper: {
     width: 140,
@@ -122,21 +119,22 @@ const styles = StyleSheet.create({
   badgeLabel: {
     fontSize: 12,
     fontWeight: '800',
-    color: '#d97706',
+    color: colors.copper[600],
     letterSpacing: 1.5,
     marginBottom: 4,
   },
   goalTitle: {
     fontSize: 22,
     fontWeight: '800',
-    color: '#0f172a',
+    color: colors.neutral[900],
     textAlign: 'center',
     marginBottom: 6,
+    letterSpacing: -0.2,
   },
   subtitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '500',
-    color: '#64748b',
+    color: colors.neutral[600],
     textAlign: 'center',
     marginBottom: 20,
   },
@@ -146,12 +144,16 @@ const styles = StyleSheet.create({
   },
   button: {
     width: '100%',
+    minHeight: 48,
+    borderRadius: radii.md,
   },
   btnText: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '800',
   },
   secondaryBtn: {
     width: '100%',
+    minHeight: 42,
   },
 });
+

@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { type TaskTemplate, type TaskCategory } from '@/mock/catalog';
 import { BouncyPressable, type ButtonVariant } from './BouncyPressable';
+import { colors, radii, shadows } from '@/theme/tokens';
 
 interface TaskCardProps {
   template: TaskTemplate;
@@ -16,10 +17,10 @@ const CATEGORY_META: Record<
   TaskCategory,
   { emoji: string; bg: string; border: string; text: string }
 > = {
-  ilgi: { emoji: '💖', bg: '#ffe4e6', border: '#fbcfe8', text: '#db2777' },
-  vakit: { emoji: '☕', bg: '#fef3c7', border: '#fde68a', text: '#d97706' },
-  plan: { emoji: '🗓️', bg: '#ecfdf5', border: '#a7f3d0', text: '#059669' },
-  ev: { emoji: '🏠', bg: '#f0f9ff', border: '#bae6fd', text: '#0284c7' },
+  ilgi: { emoji: '💖', bg: colors.rose[50], border: colors.rose[200], text: colors.rose[600] },
+  vakit: { emoji: '☕', bg: colors.copper[50], border: colors.copper[200], text: colors.copper[600] },
+  plan: { emoji: '🗓️', bg: colors.emerald[50], border: colors.emerald[200], text: colors.emerald[700] },
+  ev: { emoji: '🏠', bg: colors.neutral[100], border: colors.neutral[200], text: colors.neutral[700] },
 };
 
 export function TaskCard({
@@ -77,45 +78,41 @@ export function TaskCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 14,
-    padding: 10,
-    borderWidth: 1.5,
+    backgroundColor: colors.white,
+    borderRadius: radii.md,
+    padding: 12,
+    borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 8,
-    shadowColor: '#f43f5e',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
+    ...shadows.soft,
   },
   leftCol: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    gap: 12,
     flex: 1,
-    marginRight: 6,
+    marginRight: 8,
   },
   iconContainer: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
+    width: 42,
+    height: 42,
+    borderRadius: radii.md,
     justifyContent: 'center',
     alignItems: 'center',
   },
   emoji: {
-    fontSize: 19,
+    fontSize: 20,
   },
   content: {
     flex: 1,
-    gap: 3,
+    gap: 4,
   },
   title: {
-    fontSize: 13.5,
+    fontSize: 14,
     fontWeight: '700',
-    color: '#0f172a',
+    color: colors.neutral[900],
     letterSpacing: -0.1,
   },
   xpRow: {
@@ -124,35 +121,36 @@ const styles = StyleSheet.create({
   },
   xpBadge: {
     alignSelf: 'flex-start',
-    backgroundColor: '#fdf2f8',
-    borderRadius: 6,
-    paddingHorizontal: 7,
-    paddingVertical: 2,
-    borderWidth: 1,
-    borderColor: '#fbcfe8',
-  },
-  xpBadgePressable: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#fdf2f8',
-    borderRadius: 6,
+    backgroundColor: colors.gold[50],
+    borderRadius: radii.xs,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderWidth: 1,
-    borderColor: '#f472b6',
+    borderColor: colors.gold[200],
+  },
+  xpBadgePressable: {
+    alignSelf: 'flex-start',
+    backgroundColor: colors.gold[50],
+    borderRadius: radii.xs,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: colors.copper[300],
   },
   xpText: {
     fontSize: 11,
     fontWeight: '800',
-    color: '#db2777',
+    color: colors.copper[700],
   },
   claimButton: {
-    minWidth: 58,
-    paddingVertical: 7,
-    paddingHorizontal: 12,
-    borderRadius: 10,
+    minWidth: 64,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: radii.sm,
   },
   claimText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '800',
   },
 });
+

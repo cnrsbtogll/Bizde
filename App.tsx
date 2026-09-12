@@ -5,6 +5,8 @@ import { useBizde } from '@/store';
 import { PairingScreen } from '@/components/PairingScreen';
 import { HomeScreen } from '@/components/HomeScreen';
 
+import { colors } from '@/theme/tokens';
+
 export type RootStackParamList = {
   Pairing: undefined;
   Home: undefined;
@@ -16,8 +18,10 @@ const theme = {
   ...DefaultTheme,
   colors: {
     ...DefaultTheme.colors,
-    background: '#f8fafc',
-    card: '#ffffff',
+    background: colors.neutral[50],
+    card: colors.white,
+    text: colors.neutral[900],
+    primary: colors.emerald[600],
   },
 };
 
@@ -30,7 +34,7 @@ export default function App() {
       <Stack.Navigator
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: '#f8fafc' },
+          contentStyle: { backgroundColor: colors.neutral[50] },
         }}
       >
         {isPaired ? (

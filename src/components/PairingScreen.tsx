@@ -15,6 +15,7 @@ import { fetchCoupleDocument } from '@/services/firestore';
 import { t, type Lang } from '@/i18n/strings';
 import { validPairingCode } from '@/lib/progress';
 import { BouncyPressable } from './game/BouncyPressable';
+import { colors, radii, shadows } from '@/theme/tokens';
 
 export function PairingScreen({ lang = 'tr' }: { lang?: Lang }) {
   const { signIn, setPartner, createCode, joinCode, pairingCode } = useBizde();
@@ -90,7 +91,9 @@ export function PairingScreen({ lang = 'tr' }: { lang?: Lang }) {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.heroCard}>
-          <Text style={styles.heroEmoji}>🎮 💖</Text>
+          <View style={styles.heroBadge}>
+            <Text style={styles.heroEmoji}>🌿 💖 🌿</Text>
+          </View>
           <Text style={styles.title}>{t(lang, 'pairing.title')}</Text>
           <Text style={styles.sub}>{t(lang, 'pairing.subtitle')}</Text>
         </View>
@@ -134,7 +137,7 @@ export function PairingScreen({ lang = 'tr' }: { lang?: Lang }) {
                 <TextInput
                   style={styles.input}
                   placeholder={t(lang, 'pairing.wifePlaceholder')}
-                  placeholderTextColor="#94a3b8"
+                  placeholderTextColor={colors.neutral[400]}
                   value={name}
                   autoCapitalize="words"
                   onChangeText={(v) => {
@@ -149,7 +152,7 @@ export function PairingScreen({ lang = 'tr' }: { lang?: Lang }) {
                 <TextInput
                   style={styles.input}
                   placeholder={t(lang, 'pairing.husbandPlaceholder')}
-                  placeholderTextColor="#94a3b8"
+                  placeholderTextColor={colors.neutral[400]}
                   value={partner}
                   autoCapitalize="words"
                   onChangeText={(v) => {
@@ -182,10 +185,10 @@ export function PairingScreen({ lang = 'tr' }: { lang?: Lang }) {
                 {lang === 'tr' ? 'Lütfen kendi adını seç:' : 'Please tap your name:'}
               </Text>
               <View style={styles.identityButtonsRow}>
-                {foundMembers.map((m) => (
+                {foundMembers.map((m, idx) => (
                   <BouncyPressable
                     key={m}
-                    variant="primary"
+                    variant={idx === 0 ? 'primary' : 'copper'}
                     title={`👤 ${m}`}
                     onPress={() => handleSelectIdentity(m)}
                     wrapperStyle={{ flex: 1 }}
@@ -209,7 +212,7 @@ export function PairingScreen({ lang = 'tr' }: { lang?: Lang }) {
               <TextInput
                 style={[styles.input, styles.joinInput]}
                 placeholder="123456"
-                placeholderTextColor="#94a3b8"
+                placeholderTextColor={colors.neutral[400]}
                 keyboardType="number-pad"
                 maxLength={6}
                 value={join}
@@ -219,7 +222,7 @@ export function PairingScreen({ lang = 'tr' }: { lang?: Lang }) {
                 }}
               />
               {loading ? (
-                <ActivityIndicator size="small" color="#2563eb" style={{ marginVertical: 12 }} />
+                <ActivityIndicator size="small" color={colors.emerald[600]} style={{ marginVertical: 12 }} />
               ) : (
                 <BouncyPressable
                   variant="primary"
@@ -241,88 +244,93 @@ export function PairingScreen({ lang = 'tr' }: { lang?: Lang }) {
 const styles = StyleSheet.create({
   keyboardContainer: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.neutral[50],
   },
   scrollContent: {
     flexGrow: 1,
     justifyContent: 'center',
-    padding: 20,
-    gap: 16,
+    padding: 22,
+    gap: 18,
   },
   heroCard: {
     alignItems: 'center',
-    gap: 6,
+    gap: 8,
   },
-  heroEmoji: {
-    fontSize: 42,
+  heroBadge: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    backgroundColor: colors.emerald[50],
+    borderRadius: radii.full,
+    borderWidth: 1,
+    borderColor: colors.emerald[200],
     marginBottom: 4,
   },
+  heroEmoji: {
+    fontSize: 22,
+  },
   title: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#0f172a',
+    fontSize: 26,
+    fontWeight: '900',
+    color: colors.neutral[900],
     textAlign: 'center',
+    letterSpacing: -0.4,
   },
   sub: {
     fontSize: 14,
-    color: '#64748b',
+    color: colors.neutral[500],
     fontWeight: '500',
     textAlign: 'center',
-    maxWidth: 280,
+    maxWidth: 290,
+    lineHeight: 20,
   },
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: '#e2e8f0',
-    borderRadius: 16,
-    padding: 4,
-    gap: 4,
+    backgroundColor: colors.neutral[100],
+    borderRadius: radii.lg,
+    padding: 5,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: colors.neutral[200],
   },
   tabBtn: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 11,
     alignItems: 'center',
-    borderRadius: 12,
+    borderRadius: radii.md,
   },
   tabBtnActive: {
-    backgroundColor: '#ffffff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
-    elevation: 2,
+    backgroundColor: colors.white,
+    ...shadows.soft,
   },
   tabText: {
-    fontSize: 13,
+    fontSize: 13.5,
     fontWeight: '700',
-    color: '#64748b',
+    color: colors.neutral[500],
   },
   tabTextActive: {
-    color: '#2563eb',
+    color: colors.emerald[600],
+    fontWeight: '800',
   },
   formCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 24,
-    padding: 20,
-    borderWidth: 1.5,
-    borderColor: '#e2e8f0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 10,
-    elevation: 3,
-    gap: 12,
+    backgroundColor: colors.white,
+    borderRadius: radii.xl,
+    padding: 22,
+    borderWidth: 1,
+    borderColor: colors.neutral[200],
+    ...shadows.card,
+    gap: 14,
   },
   roleHintBox: {
-    backgroundColor: '#eff6ff',
-    borderColor: '#bfdbfe',
+    backgroundColor: colors.emerald[50],
+    borderColor: colors.emerald[200],
     borderWidth: 1,
-    borderRadius: 12,
-    padding: 10,
+    borderRadius: radii.md,
+    padding: 12,
   },
   roleHintText: {
-    fontSize: 12,
-    lineHeight: 17,
-    color: '#1e40af',
+    fontSize: 12.5,
+    lineHeight: 18,
+    color: colors.emerald[800],
     fontWeight: '600',
   },
   inputGroup: {
@@ -330,81 +338,86 @@ const styles = StyleSheet.create({
   },
   inputLabel: {
     fontSize: 13,
-    fontWeight: '700',
-    color: '#334155',
+    fontWeight: '800',
+    color: colors.neutral[800],
   },
   input: {
-    backgroundColor: '#f8fafc',
-    borderColor: '#cbd5e1',
-    borderRadius: 14,
+    backgroundColor: colors.neutral[50],
+    borderColor: colors.neutral[200],
+    borderRadius: radii.md,
     borderWidth: 1.5,
     padding: 14,
     fontSize: 15,
-    color: '#0f172a',
+    color: colors.neutral[900],
+    fontWeight: '500',
   },
   joinInput: {
-    fontSize: 24,
-    fontWeight: '800',
+    fontSize: 26,
+    fontWeight: '900',
     textAlign: 'center',
-    letterSpacing: 6,
+    letterSpacing: 8,
     paddingVertical: 16,
+    color: colors.emerald[700],
   },
   btn: {
     width: '100%',
+    minHeight: 48,
   },
   codeCard: {
-    backgroundColor: '#ecfdf5',
-    borderColor: '#a7f3d0',
+    backgroundColor: colors.emerald[50],
+    borderColor: colors.emerald[200],
     borderWidth: 1.5,
-    borderRadius: 16,
-    padding: 14,
+    borderRadius: radii.lg,
+    padding: 16,
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
+    ...shadows.soft,
   },
   codeLabel: {
     fontSize: 12,
-    fontWeight: '700',
-    color: '#059669',
+    fontWeight: '800',
+    color: colors.emerald[700],
     textTransform: 'uppercase',
+    letterSpacing: 0.8,
   },
   code: {
-    fontSize: 28,
+    fontSize: 30,
     fontWeight: '900',
-    color: '#065f46',
-    letterSpacing: 6,
+    color: colors.emerald[800],
+    letterSpacing: 8,
   },
   joinLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#475569',
+    fontSize: 14,
+    fontWeight: '800',
+    color: colors.neutral[700],
     textAlign: 'center',
   },
   error: {
-    color: '#dc2626',
+    color: '#DC2626',
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
     textAlign: 'center',
   },
   identitySelectCard: {
-    gap: 12,
+    gap: 14,
     alignItems: 'center',
-    paddingVertical: 6,
+    paddingVertical: 8,
   },
   identityTitle: {
-    fontSize: 18,
-    fontWeight: '800',
-    color: '#0f172a',
+    fontSize: 19,
+    fontWeight: '900',
+    color: colors.neutral[900],
     textAlign: 'center',
   },
   identitySubtitle: {
-    fontSize: 13,
+    fontSize: 13.5,
     fontWeight: '600',
-    color: '#64748b',
+    color: colors.neutral[500],
     textAlign: 'center',
   },
   identityButtonsRow: {
     flexDirection: 'row',
-    gap: 10,
+    gap: 12,
     width: '100%',
     marginTop: 4,
   },
@@ -413,12 +426,12 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   changeCodeBtn: {
-    marginTop: 8,
-    padding: 6,
+    marginTop: 10,
+    padding: 8,
   },
   changeCodeText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
-    color: '#64748b',
+    color: colors.neutral[500],
   },
 });
