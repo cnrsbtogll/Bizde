@@ -50,6 +50,21 @@ export interface GoalProposal {
   createdAt: number;
 }
 
+export interface RewardClaimProposal {
+  id: string;
+  member: string;
+  rewardTitle: string;
+  targetPoints: number;
+  createdAt: number;
+}
+
+export interface ApprovedRewardClaim {
+  member: string;
+  rewardTitle: string;
+  approvedBy: string;
+  timestamp: number;
+}
+
 interface BizdeState {
   uid: string | null;
   members: string[];
@@ -98,6 +113,9 @@ interface BizdeState {
   appreciate: () => void;
   startNewGoal: (title: string, targetPoints: number, m25Title?: string, m60Title?: string) => boolean;
   pendingGoalProposal: GoalProposal | null;
+  pendingRewardClaim: RewardClaimProposal | null;
+  lastApprovedRewardClaim: ApprovedRewardClaim | null;
+  dismissApprovedRewardClaim: () => void;
   proposeGoal: (
     targetType: 'common' | string,
     title: string,
@@ -108,6 +126,9 @@ interface BizdeState {
   ) => boolean;
   acceptGoalProposal: () => boolean;
   rejectGoalProposal: () => boolean;
+  proposeRewardClaim: (member: string) => boolean;
+  acceptRewardClaim: () => boolean;
+  rejectRewardClaim: () => boolean;
   reset: () => void;
 }
 
@@ -148,6 +169,8 @@ export const useBizde = create<BizdeState>()(
   personalSpentPoints: {},
   celebratedMilestones: [],
   pendingGoalProposal: null,
+  pendingRewardClaim: null,
+  lastApprovedRewardClaim: null,
 
   signIn: async (displayName) => {
     const name = displayName.trim();
@@ -176,7 +199,7 @@ export const useBizde = create<BizdeState>()(
   createCode: () => {
     const code = String(Math.floor(100000 + Math.random() * 900000));
     const coupleId = `couple-${code}`;
-    const { members, activeGoal, pastGoals, activities, customTemplates, customRewards, taskPointOverrides, personalGoals, pendingGoalProposal } = get();
+    const { members, activeGoal, pastGoals, activities, customTemplates, customRewards, taskPointOverrides, personalGoals, personalSpentPoints, celebratedMilestones, pendingGoalProposal, pendingRewardClaim, lastApprovedRewardClaim } = get();
     const sharedData: SharedCoupleData = {
       members,
       activeGoal,
@@ -186,7 +209,11 @@ export const useBizde = create<BizdeState>()(
       customRewards,
       taskPointOverrides,
       personalGoals,
+      personalSpentPoints,
+      celebratedMilestones,
       pendingGoalProposal,
+      pendingRewardClaim,
+      lastApprovedRewardClaim,
       partnerJoined: false,
     };
     initCoupleDocument(coupleId, sharedData).catch(console.error);
@@ -463,6 +490,53 @@ export const useBizde = create<BizdeState>()(
     return true;
   },
 
+  proposeRewardClaim: (member) => {
+    const { personalGoals, members, activities, personalSpentPoints } = get();
+    const goal = getPersonalGoal(personalGoals, member, members);
+    const pts = getPersonalPoints(activities, member, personalSpentPoints);
+    if (pts < goal.targetPoints) return false;
+
+    const proposal: RewardClaimProposal = {
+      id: newId('rc'),
+      member,
+      rewardTitle: goal.title,
+      targetPoints: goal.targetPoints,
+      createdAt: Date.now(),
+    };
+    set({ pendingRewardClaim: proposal });
+    return true;
+  },
+
+  acceptRewardClaim: () => {
+    const { pendingRewardClaim, claimPersonalReward, actor, members } = get();
+    if (!pendingRewardClaim) return false;
+    const approver = actor || otherMember(members, pendingRewardClaim.member);
+    const ok = claimPersonalReward(pendingRewardClaim.member);
+    if (ok) {
+      set({
+        pendingRewardClaim: null,
+        lastApprovedRewardClaim: {
+          member: pendingRewardClaim.member,
+          rewardTitle: pendingRewardClaim.rewardTitle,
+          approvedBy: approver,
+          timestamp: Date.now(),
+        },
+      });
+      return true;
+    }
+    return false;
+  },
+
+  rejectRewardClaim: () => {
+    if (!get().pendingRewardClaim) return false;
+    set({ pendingRewardClaim: null });
+    return true;
+  },
+
+  dismissApprovedRewardClaim: () => {
+    set({ lastApprovedRewardClaim: null });
+  },
+
   adjustTargetPoints: (delta) => {
     const { activeGoal } = get();
     const next = Math.min(600, Math.max(150, activeGoal.targetPoints + delta));
@@ -597,6 +671,8 @@ export const useBizde = create<BizdeState>()(
       personalSpentPoints: {},
       celebratedMilestones: [],
       pendingGoalProposal: null,
+      pendingRewardClaim: null,
+      lastApprovedRewardClaim: null,
     });
   },
 }),
@@ -621,6 +697,8 @@ export const useBizde = create<BizdeState>()(
         personalSpentPoints: state.personalSpentPoints,
         celebratedMilestones: state.celebratedMilestones,
         pendingGoalProposal: state.pendingGoalProposal,
+        pendingRewardClaim: state.pendingRewardClaim,
+        lastApprovedRewardClaim: state.lastApprovedRewardClaim,
       }),
       onRehydrateStorage: () => (hydratedState) => {
         if (hydratedState?.coupleId) {
@@ -652,6 +730,8 @@ function startFirestoreSubscription(coupleId: string, currentActor?: string) {
       members: nextMembers,
       personalSpentPoints: remoteData.personalSpentPoints || currentState.personalSpentPoints || {},
       celebratedMilestones: remoteData.celebratedMilestones || currentState.celebratedMilestones || [],
+      pendingRewardClaim: remoteData.pendingRewardClaim !== undefined ? remoteData.pendingRewardClaim : currentState.pendingRewardClaim,
+      lastApprovedRewardClaim: remoteData.lastApprovedRewardClaim !== undefined ? remoteData.lastApprovedRewardClaim : currentState.lastApprovedRewardClaim,
       partnerJoined: remoteData.partnerJoined ?? false,
     });
     setTimeout(() => {
@@ -683,6 +763,8 @@ useBizde.subscribe((state, prevState) => {
       personalSpentPoints: state.personalSpentPoints,
       celebratedMilestones: state.celebratedMilestones,
       pendingGoalProposal: state.pendingGoalProposal,
+      pendingRewardClaim: state.pendingRewardClaim,
+      lastApprovedRewardClaim: state.lastApprovedRewardClaim,
       partnerJoined: state.partnerJoined,
     };
     initCoupleDocument(currentCoupleId, sharedData).catch(console.error);
@@ -700,6 +782,8 @@ useBizde.subscribe((state, prevState) => {
       personalSpentPoints: state.personalSpentPoints,
       celebratedMilestones: state.celebratedMilestones,
       pendingGoalProposal: state.pendingGoalProposal,
+      pendingRewardClaim: state.pendingRewardClaim,
+      lastApprovedRewardClaim: state.lastApprovedRewardClaim,
       partnerJoined: state.partnerJoined,
     };
     updateCoupleDocument(currentCoupleId, sharedData).catch(console.error);

@@ -69,7 +69,6 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
     personalGoals,
     personalSpentPoints,
     celebratedMilestones,
-    claimPersonalReward,
     markMilestoneCelebrated,
     activities,
     claimTask,
@@ -88,6 +87,12 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
     proposeGoal,
     acceptGoalProposal,
     rejectGoalProposal,
+    pendingRewardClaim,
+    proposeRewardClaim,
+    acceptRewardClaim,
+    rejectRewardClaim,
+    lastApprovedRewardClaim,
+    dismissApprovedRewardClaim,
   } = useBizde();
 
   const [taskModal, setTaskModal] = useState(false);
@@ -214,10 +219,10 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
   }, [proposalFeedback]);
 
   useEffect(() => {
-    if (!pendingGoalProposal && (proposalFeedback.includes('bekleniyor') || proposalFeedback.includes('Awaiting'))) {
+    if (!pendingGoalProposal && !pendingRewardClaim && (proposalFeedback.includes('bekleniyor') || proposalFeedback.includes('Awaiting'))) {
       setProposalFeedback('');
     }
-  }, [pendingGoalProposal, proposalFeedback]);
+  }, [pendingGoalProposal, pendingRewardClaim, proposalFeedback]);
 
   const handleTaskAction = (tpl: TaskTemplate) => {
     const title = templateTitle(tpl, lang);
@@ -274,20 +279,28 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
     setGoalModal(true);
   };
 
-  const handleClaimPersonalReward = (member: string, isFemale: boolean) => {
+  const handleClaimPersonalReward = (member: string) => {
     const goal = getPersonalGoal(personalGoals, member, members);
     Alert.alert(
-      '🎉 Ödülü Kullan',
-      `"${goal.title}" ödülünü kullanmak ve sıradaki yeni ödülünü belirlemek istiyor musun? (${goal.targetPoints} XP harcanacak, artan puanların yeni ödüle devredecektir.)`,
+      lang === 'tr' ? '🎉 Ödülü Kullan' : '🎉 Claim Reward',
+      lang === 'tr'
+        ? `"${goal.title}" ödülünü kullanmak için eşine onay isteği gönderilsin mi? (${goal.targetPoints} XP harcanacak, artan puanların yeni ödüle devredecektir.)`
+        : `Do you want to send an approval request to your partner to claim "${goal.title}"? (${goal.targetPoints} XP will be spent, excess points will carry over.)`,
       [
-        { text: 'Vazgeç', style: 'cancel' },
+        { text: lang === 'tr' ? 'Vazgeç' : 'Cancel', style: 'cancel' },
         {
-          text: 'Kullan ve Yeni Ödül Seç',
+          text: lang === 'tr' ? 'Onaya Gönder' : 'Send for Approval',
           style: 'default',
           onPress: () => {
             void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            claimPersonalReward(member);
-            openEditPersonalGoalModal(member, isFemale);
+            const ok = proposeRewardClaim(member);
+            if (ok) {
+              setProposalFeedback(
+                lang === 'tr'
+                  ? '🎁 Ödül kullanım talebi eşine iletildi. Onayı bekleniyor...'
+                  : '🎁 Reward claim request sent to partner. Awaiting approval...'
+              );
+            }
           },
         },
       ]
@@ -570,6 +583,117 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
           </View>
         )}
 
+        {/* Reward Claim Proposal Banner */}
+        {pendingRewardClaim && (
+          <View style={[styles.proposalCard, { backgroundColor: colors.copper[50], borderColor: colors.copper[300] }]}>
+            <View style={styles.proposalHeaderRow}>
+              <Text style={styles.proposalIcon}>🎁</Text>
+              <View style={styles.proposalHeaderTextCol}>
+                <Text style={[styles.proposalTitle, { color: colors.copper[900] }]}>
+                  {lang === 'tr' ? 'Ödül Kullanım Talebi' : 'Reward Claim Request'}
+                </Text>
+                <Text style={[styles.proposalSubtext, { color: colors.copper[700] }]}>
+                  {lang === 'tr'
+                    ? `${pendingRewardClaim.member} kazandığı ödülü kullanmak istiyor:`
+                    : `${pendingRewardClaim.member} wants to claim their earned reward:`}
+                </Text>
+              </View>
+            </View>
+
+            <View style={[styles.proposalDetailsBox, { borderColor: colors.copper[200] }]}>
+              <Text style={styles.proposalTargetTitle} numberOfLines={2}>
+                🎉 {pendingRewardClaim.rewardTitle}
+              </Text>
+              <View style={styles.proposalBadgeRow}>
+                <Text style={styles.proposalBadgeText}>{pendingRewardClaim.targetPoints} XP</Text>
+              </View>
+            </View>
+
+            {actor !== pendingRewardClaim.member ? (
+              <View style={styles.proposalActionsRow}>
+                <BouncyPressable
+                  variant="primary"
+                  title={lang === 'tr' ? '✅ Onayla' : '✅ Accept'}
+                  onPress={() => {
+                    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                    acceptRewardClaim();
+                    setProposalFeedback(
+                      lang === 'tr'
+                        ? '🎉 Ödül kullanımı onaylandı!'
+                        : '🎉 Reward claim approved!'
+                    );
+                  }}
+                  style={styles.proposalActionBtn}
+                />
+                <BouncyPressable
+                  variant="ghost"
+                  title={lang === 'tr' ? '❌ Reddet' : '❌ Decline'}
+                  onPress={() => {
+                    void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                    rejectRewardClaim();
+                    setProposalFeedback(
+                      lang === 'tr' ? 'Ödül kullanım talebi reddedildi.' : 'Reward claim declined.'
+                    );
+                  }}
+                  style={styles.proposalActionBtn}
+                />
+              </View>
+            ) : (
+              <View style={styles.proposalWaitingCol}>
+                <View style={styles.proposalWaitingRow}>
+                  <Text style={styles.proposalWaitingText}>
+                    ⏳ {lang === 'tr' ? 'Eşinin onayı bekleniyor...' : 'Awaiting partner approval...'}
+                  </Text>
+                  <Pressable
+                    onPress={() => {
+                      void Haptics.selectionAsync();
+                      rejectRewardClaim();
+                      setProposalFeedback(
+                        lang === 'tr' ? 'Talep geri çekildi.' : 'Request retracted.'
+                      );
+                    }}
+                    style={styles.proposalCancelBtn}
+                  >
+                    <Text style={styles.proposalCancelText}>
+                      {lang === 'tr' ? 'Geri Çek' : 'Cancel'}
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Approved Reward Claim Celebration Banner */}
+        {lastApprovedRewardClaim && actor === lastApprovedRewardClaim.member && (
+          <View style={[styles.proposalCard, { backgroundColor: '#F0FDF4', borderColor: '#86EFAC' }]}>
+            <View style={styles.proposalHeaderRow}>
+              <Text style={styles.proposalIcon}>🥳</Text>
+              <View style={styles.proposalHeaderTextCol}>
+                <Text style={[styles.proposalTitle, { color: '#166534' }]}>
+                  {lang === 'tr' ? '🎉 Harika Haber!' : '🎉 Great News!'}
+                </Text>
+                <Text style={[styles.proposalSubtext, { color: '#15803D', fontSize: 13, marginTop: 2 }]}>
+                  {lang === 'tr'
+                    ? `${lastApprovedRewardClaim.approvedBy} kazandığın "${lastApprovedRewardClaim.rewardTitle}" ödülünü onayladı. Gün içinde keyifle kullanabilirsin!`
+                    : `${lastApprovedRewardClaim.approvedBy} approved your "${lastApprovedRewardClaim.rewardTitle}" reward. Enjoy it today!`}
+                </Text>
+              </View>
+            </View>
+            <View style={{ alignItems: 'flex-end', marginTop: 6 }}>
+              <BouncyPressable
+                variant="primary"
+                title={lang === 'tr' ? 'Harika, Teşekkürler! 🎉' : 'Awesome, Thanks! 🎉'}
+                onPress={() => {
+                  void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                  dismissApprovedRewardClaim();
+                }}
+                style={{ paddingVertical: 6, paddingHorizontal: 16 }}
+              />
+            </View>
+          </View>
+        )}
+
         {/* Temporary Feedback Banner */}
         {proposalFeedback.length > 0 && (
           <View style={styles.feedbackBanner}>
@@ -639,7 +763,7 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
               goal={femaleGoal}
               accentColor={BAR_COLORS[0]}
               onEdit={() => openEditPersonalGoalModal(femaleMember, true)}
-              onClaimReward={() => handleClaimPersonalReward(femaleMember, true)}
+              onClaimReward={actor === femaleMember && !pendingRewardClaim ? () => handleClaimPersonalReward(femaleMember) : undefined}
             />
             <PersonalGoalCard
               member={maleMember}
@@ -648,7 +772,7 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
               goal={maleGoal}
               accentColor={BAR_COLORS[1]}
               onEdit={() => openEditPersonalGoalModal(maleMember, false)}
-              onClaimReward={() => handleClaimPersonalReward(maleMember, false)}
+              onClaimReward={actor === maleMember && !pendingRewardClaim ? () => handleClaimPersonalReward(maleMember) : undefined}
             />
           </View>
         )}

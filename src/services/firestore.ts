@@ -1,6 +1,6 @@
 import { doc, onSnapshot, setDoc, updateDoc, getDoc } from 'firebase/firestore';
 import { getFirebase } from '../firebase';
-import { type Activity, type Goal, type FinishedGoal, type GoalProposal } from '../store';
+import { type Activity, type Goal, type FinishedGoal, type GoalProposal, type RewardClaimProposal, type ApprovedRewardClaim } from '../store';
 import { type TaskTemplate, type RewardTemplate } from '../mock/catalog';
 // We store the shared state in a single document for simplicity
 export interface SharedCoupleData {
@@ -15,6 +15,8 @@ export interface SharedCoupleData {
   personalSpentPoints?: Record<string, number>;
   celebratedMilestones?: string[];
   pendingGoalProposal: GoalProposal | null;
+  pendingRewardClaim?: RewardClaimProposal | null;
+  lastApprovedRewardClaim?: ApprovedRewardClaim | null;
   partnerJoined?: boolean;
 }
 
