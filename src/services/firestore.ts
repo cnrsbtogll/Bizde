@@ -12,6 +12,7 @@ export interface SharedCoupleData {
   customRewards: RewardTemplate[];
   taskPointOverrides: Record<string, number>;
   personalGoals: Record<string, Goal>;
+  personalSpentPoints?: Record<string, number>;
   pendingGoalProposal: GoalProposal | null;
   partnerJoined?: boolean;
 }

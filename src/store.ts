@@ -79,6 +79,8 @@ interface BizdeState {
   addCustomReward: (title: string, thresholdPct?: number) => string | null;
   taskPointOverrides: Record<string, number>;
   personalGoals: Record<string, Goal>;
+  personalSpentPoints: Record<string, number>;
+  claimPersonalReward: (member: string) => boolean;
   updateActiveGoal: (title: string, targetPoints: number, m25Title?: string, m60Title?: string) => boolean;
   updatePersonalGoal: (
     member: string,
@@ -141,6 +143,7 @@ export const useBizde = create<BizdeState>()(
   customRewards: [],
   taskPointOverrides: {},
   personalGoals: {},
+  personalSpentPoints: {},
   pendingGoalProposal: null,
 
   signIn: async (displayName) => {
@@ -365,6 +368,38 @@ export const useBizde = create<BizdeState>()(
     return true;
   },
 
+  claimPersonalReward: (member) => {
+    const { personalGoals, members, activities, personalSpentPoints } = get();
+    const goal = getPersonalGoal(personalGoals, member, members);
+    const pts = getPersonalPoints(activities, member, personalSpentPoints);
+    if (pts < goal.targetPoints) return false;
+    const currentSpent = personalSpentPoints[member] ?? 0;
+    const nextSpent = currentSpent + goal.targetPoints;
+
+    const activity: Activity = {
+      id: newId('a'),
+      claimedBy: member,
+      title: `🎁 Ödül Kullanıldı: ${goal.title}`,
+      templateId: undefined,
+      requestedPoints: 0,
+      points: 0,
+      status: 'approved',
+      type: 'task',
+      createdAt: Date.now(),
+      approvedBy: member,
+      decidedAt: Date.now(),
+    };
+
+    set({
+      personalSpentPoints: {
+        ...personalSpentPoints,
+        [member]: nextSpent,
+      },
+      activities: [activity, ...activities],
+    });
+    return true;
+  },
+
   proposeGoal: (targetType, title, targetPoints, m25Title, m60Title, targetMember) => {
     const clean = title.trim();
     const minPts = targetType === 'common' ? 150 : 100;
@@ -550,6 +585,7 @@ export const useBizde = create<BizdeState>()(
       customRewards: [],
       taskPointOverrides: {},
       personalGoals: {},
+      personalSpentPoints: {},
       pendingGoalProposal: null,
     });
   },
@@ -572,6 +608,7 @@ export const useBizde = create<BizdeState>()(
         customRewards: state.customRewards,
         taskPointOverrides: state.taskPointOverrides,
         personalGoals: state.personalGoals,
+        personalSpentPoints: state.personalSpentPoints,
         pendingGoalProposal: state.pendingGoalProposal,
       }),
       onRehydrateStorage: () => (hydratedState) => {
@@ -602,6 +639,7 @@ function startFirestoreSubscription(coupleId: string, currentActor?: string) {
     useBizde.setState({
       ...remoteData,
       members: nextMembers,
+      personalSpentPoints: remoteData.personalSpentPoints || currentState.personalSpentPoints || {},
       partnerJoined: remoteData.partnerJoined ?? false,
     });
     setTimeout(() => {
@@ -630,6 +668,7 @@ useBizde.subscribe((state, prevState) => {
       customRewards: state.customRewards,
       taskPointOverrides: state.taskPointOverrides,
       personalGoals: state.personalGoals,
+      personalSpentPoints: state.personalSpentPoints,
       pendingGoalProposal: state.pendingGoalProposal,
       partnerJoined: state.partnerJoined,
     };
@@ -645,6 +684,7 @@ useBizde.subscribe((state, prevState) => {
       customRewards: state.customRewards,
       taskPointOverrides: state.taskPointOverrides,
       personalGoals: state.personalGoals,
+      personalSpentPoints: state.personalSpentPoints,
       pendingGoalProposal: state.pendingGoalProposal,
       partnerJoined: state.partnerJoined,
     };
@@ -673,6 +713,20 @@ export function getPersonalGoal(
     m25Title: 'En Sevdiği Çiçek & Tatlı',
     m60Title: 'Mum Işığında Akşam Yemeği',
   };
+}
+
+/** Kişinin onaylı kazanılmış puanından harcadığı ödül puanı düşülerek hesaplanan net bireysel puanı. */
+export function getPersonalPoints(
+  activities: Activity[],
+  member: string,
+  personalSpentPoints: Record<string, number> = {}
+): number {
+  const totalApproved = activities.reduce(
+    (sum, a) => (a.status === 'approved' && a.claimedBy === member ? sum + a.points : sum),
+    0
+  );
+  const spent = personalSpentPoints[member] ?? 0;
+  return Math.max(0, totalApproved - spent);
 }
 
 /** Onaylı toplam — bar ve hedef hesabı tek yerden. */

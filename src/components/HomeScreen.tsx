@@ -15,6 +15,7 @@ import {
 import * as Haptics from 'expo-haptics';
 import {
   getPersonalGoal,
+  getPersonalPoints,
   hasAppreciatedToday,
   historyActivities,
   incomingRequests,
@@ -66,6 +67,8 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
     customTemplates,
     taskPointOverrides,
     personalGoals,
+    personalSpentPoints,
+    claimPersonalReward,
     activities,
     claimTask,
     requestTask,
@@ -166,6 +169,8 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
   const maleMember: string = members[1] ?? partnerName ?? 'Erkek';
   const femaleGoal = getPersonalGoal(personalGoals, femaleMember, members);
   const maleGoal = getPersonalGoal(personalGoals, maleMember, members);
+  const femalePoints = getPersonalPoints(activities, femaleMember, personalSpentPoints);
+  const malePoints = getPersonalPoints(activities, maleMember, personalSpentPoints);
 
   // Trigger celebration modal once per completed goal instance
   useEffect(() => {
@@ -198,6 +203,21 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
       }
     }
   }, [currentPct, total, target, activeGoal.title, activeGoal.targetPoints, activeGoal.m25Title, activeGoal.m60Title, celebratedMilestones]);
+
+  // Auto-dismiss and cleanup proposal feedback banner
+  useEffect(() => {
+    if (!proposalFeedback) return;
+    const timer = setTimeout(() => {
+      setProposalFeedback('');
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [proposalFeedback]);
+
+  useEffect(() => {
+    if (!pendingGoalProposal && (proposalFeedback.includes('bekleniyor') || proposalFeedback.includes('Awaiting'))) {
+      setProposalFeedback('');
+    }
+  }, [pendingGoalProposal, proposalFeedback]);
 
   const handleTaskAction = (tpl: TaskTemplate) => {
     const title = templateTitle(tpl, lang);
@@ -252,6 +272,26 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
     setSuggestionAudience(isFemale ? 'kadin_icin' : 'erkek_icin');
     setError('');
     setGoalModal(true);
+  };
+
+  const handleClaimPersonalReward = (member: string, isFemale: boolean) => {
+    const goal = getPersonalGoal(personalGoals, member, members);
+    Alert.alert(
+      '🎉 Ödülü Kullan',
+      `"${goal.title}" ödülünü kullanmak ve sıradaki yeni ödülünü belirlemek istiyor musun? (${goal.targetPoints} XP harcanacak, artan puanların yeni ödüle devredecektir.)`,
+      [
+        { text: 'Vazgeç', style: 'cancel' },
+        {
+          text: 'Kullan ve Yeni Ödül Seç',
+          style: 'default',
+          onPress: () => {
+            void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            claimPersonalReward(member);
+            openEditPersonalGoalModal(member, isFemale);
+          },
+        },
+      ]
+    );
   };
 
   const openNewGoalModal = () => {
@@ -596,18 +636,20 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
             <PersonalGoalCard
               member={femaleMember}
               isFemale={true}
-              points={n1 ?? 0}
+              points={femalePoints}
               goal={femaleGoal}
               accentColor={BAR_COLORS[0]}
               onEdit={() => openEditPersonalGoalModal(femaleMember, true)}
+              onClaimReward={() => handleClaimPersonalReward(femaleMember, true)}
             />
             <PersonalGoalCard
               member={maleMember}
               isFemale={false}
-              points={n2 ?? 0}
+              points={malePoints}
               goal={maleGoal}
               accentColor={BAR_COLORS[1]}
               onEdit={() => openEditPersonalGoalModal(maleMember, false)}
+              onClaimReward={() => handleClaimPersonalReward(maleMember, false)}
             />
           </View>
         )}

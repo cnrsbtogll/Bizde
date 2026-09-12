@@ -15,6 +15,7 @@ interface PersonalGoalCardProps {
   points: number;
   goal: Goal;
   onEdit: () => void;
+  onClaimReward?: () => void;
   accentColor?: string;
   badgeEmoji?: string;
 }
@@ -25,6 +26,7 @@ export function PersonalGoalCard({
   points,
   goal,
   onEdit,
+  onClaimReward,
   accentColor,
   badgeEmoji,
 }: PersonalGoalCardProps) {
@@ -89,6 +91,24 @@ export function PersonalGoalCard({
           <Text style={[styles.pctText, { color: themeColor }]}>%{percentage}</Text>
         </View>
       </View>
+
+      {/* Claim Reward Button when 100% completed */}
+      {points >= target && onClaimReward && (
+        <Pressable
+          onPress={() => {
+            void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            onClaimReward();
+          }}
+          style={[
+            styles.claimRewardBtn,
+            { backgroundColor: themeColor }
+          ]}
+          accessibilityRole="button"
+          accessibilityLabel={`${goal.title} ödülünü kullan`}
+        >
+          <Text style={styles.claimRewardBtnText}>🎉 Ödülü Kullan</Text>
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -178,6 +198,21 @@ const styles = StyleSheet.create({
   pctText: {
     fontSize: 11,
     fontWeight: '800',
+  },
+  claimRewardBtn: {
+    marginTop: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: radii.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...shadows.soft,
+  },
+  claimRewardBtnText: {
+    color: colors.white,
+    fontSize: 13,
+    fontWeight: '800',
+    letterSpacing: 0.2,
   },
 });
 
