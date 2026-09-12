@@ -21,14 +21,27 @@ export function subscribeToCouple(
   onData: (data: SharedCoupleData) => void
 ): () => void {
   const fb = getFirebase();
-  if (!fb) return () => {};
+  if (!fb) {
+    console.warn('[Firestore] subscribeToCouple skipped: Firebase not initialized');
+    return () => {};
+  }
 
+  console.log('[Firestore] Subscribing to couple:', coupleId);
   const docRef = doc(fb.db, 'couples', coupleId);
-  return onSnapshot(docRef, (snapshot) => {
-    if (snapshot.exists()) {
-      onData(snapshot.data() as SharedCoupleData);
+  return onSnapshot(
+    docRef,
+    (snapshot) => {
+      if (snapshot.exists()) {
+        console.log('[Firestore] Snapshot received for:', coupleId);
+        onData(snapshot.data() as SharedCoupleData);
+      } else {
+        console.log('[Firestore] Snapshot: document does not exist yet:', coupleId);
+      }
+    },
+    (err) => {
+      console.error('[Firestore] subscribeToCouple listener error:', err);
     }
-  });
+  );
 }
 
 function cleanForFirestore<T>(data: T): T {
@@ -37,26 +50,36 @@ function cleanForFirestore<T>(data: T): T {
 
 export async function initCoupleDocument(coupleId: string, initialData: SharedCoupleData) {
   const fb = getFirebase();
-  if (!fb) return;
+  if (!fb) {
+    console.warn('[Firestore] initCoupleDocument skipped: Firebase not initialized');
+    return;
+  }
   try {
     const docRef = doc(fb.db, 'couples', coupleId);
     await setDoc(docRef, cleanForFirestore(initialData), { merge: true });
+    console.log('[Firestore] Successfully initialized couple document:', coupleId);
   } catch (err) {
-    console.error('Error init couple document:', err);
+    console.error('[Firestore] Error init couple document:', coupleId, err);
   }
 }
 
 export async function fetchCoupleDocument(coupleId: string): Promise<SharedCoupleData | null> {
   const fb = getFirebase();
-  if (!fb) return null;
+  if (!fb) {
+    console.warn('[Firestore] fetchCoupleDocument skipped: Firebase not initialized');
+    return null;
+  }
   try {
+    console.log('[Firestore] Fetching couple document:', coupleId);
     const docRef = doc(fb.db, 'couples', coupleId);
     const snapshot = await getDoc(docRef);
     if (snapshot.exists()) {
+      console.log('[Firestore] Found couple document:', coupleId);
       return snapshot.data() as SharedCoupleData;
     }
+    console.log('[Firestore] Couple document not found in DB:', coupleId);
   } catch (err) {
-    console.error('Error fetching couple document:', err);
+    console.error('[Firestore] Error fetching couple document:', coupleId, err);
   }
   return null;
 }
@@ -67,7 +90,8 @@ export async function updateCoupleDocument(coupleId: string, updates: Partial<Sh
   try {
     const docRef = doc(fb.db, 'couples', coupleId);
     await updateDoc(docRef, cleanForFirestore(updates));
+    console.log('[Firestore] Updated couple document:', coupleId);
   } catch (err) {
-    console.error('Error updating couple document:', err);
+    console.error('[Firestore] Error updating couple document:', coupleId, err);
   }
 }
