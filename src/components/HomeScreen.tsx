@@ -2,7 +2,9 @@ import { useState, useEffect } from 'react';
 import {
   Alert,
   FlatList,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -158,10 +160,10 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
     members.find((m) => m !== actor) ??
     (members[0] === actor ? members[1] ?? 'Partner' : members[0] ?? 'Partner');
 
-  const maleMember: string = members[0] ?? actor ?? 'Erkek';
-  const femaleMember: string = members[1] ?? partnerName ?? 'Kadın';
-  const maleGoal = getPersonalGoal(personalGoals, maleMember, members);
+  const femaleMember: string = members[0] ?? actor ?? 'Kadın';
+  const maleMember: string = members[1] ?? partnerName ?? 'Erkek';
   const femaleGoal = getPersonalGoal(personalGoals, femaleMember, members);
+  const maleGoal = getPersonalGoal(personalGoals, maleMember, members);
 
   // Trigger celebration modal once per completed goal instance
   useEffect(() => {
@@ -554,9 +556,9 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
           goalTitle={activeGoal.title}
           m25Title={activeGoal.m25Title}
           m60Title={activeGoal.m60Title}
-          member1Name={maleMember}
+          member1Name={femaleMember}
           member1Points={n1 ?? 0}
-          member2Name={femaleMember}
+          member2Name={maleMember}
           member2Points={n2 ?? 0}
           color1={BAR_COLORS[0]}
           color2={BAR_COLORS[1]}
@@ -602,14 +604,14 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
             <PersonalGoalCard
               member={femaleMember}
               isFemale={true}
-              points={n2 ?? 0}
+              points={n1 ?? 0}
               goal={femaleGoal}
               onEdit={() => openEditPersonalGoalModal(femaleMember, true)}
             />
             <PersonalGoalCard
               member={maleMember}
               isFemale={false}
-              points={n1 ?? 0}
+              points={n2 ?? 0}
               goal={maleGoal}
               onEdit={() => openEditPersonalGoalModal(maleMember, false)}
             />
@@ -878,8 +880,11 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
       </ScrollView>
 
       {/* Task Picker Modal */}
-      <Modal visible={taskModal} transparent animationType="slide">
-        <View style={styles.modalBackdrop}>
+      <Modal visible={taskModal} transparent animationType="slide" onRequestClose={() => setTaskModal(false)}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalBackdrop}
+        >
           <View style={styles.sheetContainer}>
             <View style={styles.sheetHeader}>
               <Text style={styles.sheetTitle}>🎯 {t(lang, 'home.modalTitle')}</Text>
@@ -938,6 +943,8 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
               data={filteredTemplates}
               keyExtractor={(tpl) => tpl.id}
               style={styles.taskList}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
               renderItem={({ item }) => {
                 const effectivePts = taskPointOverrides[item.id] ?? item.defaultPoints;
                 const itemWithOverride = { ...item, defaultPoints: effectivePts };
@@ -999,12 +1006,15 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
               {error.length > 0 && <Text style={styles.error}>{error}</Text>}
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Goal Setting Modal */}
-      <Modal visible={goalModal} transparent animationType="slide">
-        <View style={styles.modalBackdrop}>
+      <Modal visible={goalModal} transparent animationType="slide" onRequestClose={() => setGoalModal(false)}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalBackdrop}
+        >
           <View style={styles.sheetContainer}>
             <View style={styles.sheetHeader}>
               <Text style={styles.sheetTitle}>
@@ -1031,6 +1041,8 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
               style={styles.goalModalScroll}
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.goalFormContent}
+              keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
             >
               {/* Ready-made Goal Packages - Filtered by Target */}
               <Text style={styles.pkgSectionTitle}>🎁 Hazır Hedef Paketleri (Tek Tıkla Yükle)</Text>
@@ -1288,7 +1300,7 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
               </View>
             </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Milestone Inspection Sheet / Modal */}
@@ -1374,8 +1386,11 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
       </Modal>
 
       {/* Task Points Customizer Modal */}
-      <Modal visible={editingTask !== null} transparent animationType="fade">
-        <View style={styles.modalBackdrop}>
+      <Modal visible={editingTask !== null} transparent animationType="fade" onRequestClose={() => setEditingTask(null)}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalBackdrop}
+        >
           <View style={styles.taskEditSheet}>
             {editingTask && (
               <>
@@ -1463,7 +1478,7 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
               </>
             )}
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Screen-Wide Celebration Overlay with Confetti & Trophy */}
@@ -1981,8 +1996,9 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     paddingTop: 12,
     paddingHorizontal: 14,
-    paddingBottom: 20,
-    height: '92%',
+    paddingBottom: Platform.OS === 'ios' ? 24 : 16,
+    maxHeight: '90%',
+    flex: 1,
     gap: 8,
   },
   sheetHeader: {
@@ -2137,7 +2153,7 @@ const styles = StyleSheet.create({
     color: '#0f766e',
   },
   goalModalScroll: {
-    flexShrink: 1,
+    flex: 1,
   },
   pkgSectionTitle: {
     fontSize: 13,
@@ -2212,7 +2228,7 @@ const styles = StyleSheet.create({
   },
   goalFormContent: {
     gap: 8,
-    paddingBottom: 36,
+    paddingBottom: 60,
   },
   goalTargetRow: {
     flexDirection: 'row',

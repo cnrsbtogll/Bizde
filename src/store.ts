@@ -610,20 +610,20 @@ export function getPersonalGoal(
   members: string[] = []
 ): Goal {
   if (personalGoals[member]) return personalGoals[member];
-  const isSecond = members.length > 1 && members[1] === member;
-  if (isSecond) {
+  const isMale = members.length > 1 && members[1] === member;
+  if (isMale) {
     return {
-      title: 'Hafta Sonu Spa & Romantik Akşam Yemeği',
+      title: '3 Saat Kesintisiz PS & Masaj Gecesi',
       targetPoints: 200,
-      m25Title: 'En Sevdiği Çiçek & Tatlı',
-      m60Title: 'Mum Işığında Akşam Yemeği',
+      m25Title: 'Favori Atıştırmalık & İçecek',
+      m60Title: '3 Saat Kesintisiz Oyun / Maç',
     };
   }
   return {
-    title: '3 Saat Kesintisiz PS & Masaj Gecesi',
+    title: 'Hafta Sonu Spa & Romantik Akşam Yemeği',
     targetPoints: 200,
-    m25Title: 'Favori Atıştırmalık & İçecek',
-    m60Title: '3 Saat Kesintisiz Oyun / Maç',
+    m25Title: 'En Sevdiği Çiçek & Tatlı',
+    m60Title: 'Mum Işığında Akşam Yemeği',
   };
 }
 

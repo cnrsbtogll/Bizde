@@ -125,28 +125,39 @@ export function PairingScreen({ lang = 'tr' }: { lang?: Lang }) {
         <View style={styles.formCard}>
           {mode === 'create' ? (
             <>
-              <TextInput
-                style={styles.input}
-                placeholder={t(lang, 'pairing.namePlaceholder')}
-                placeholderTextColor="#94a3b8"
-                value={name}
-                autoCapitalize="words"
-                onChangeText={(v) => {
-                  setName(v);
-                  setError('');
-                }}
-              />
-              <TextInput
-                style={styles.input}
-                placeholder={t(lang, 'pairing.partnerPlaceholder')}
-                placeholderTextColor="#94a3b8"
-                value={partner}
-                autoCapitalize="words"
-                onChangeText={(v) => {
-                  setPartnerName(v);
-                  setError('');
-                }}
-              />
+              <View style={styles.roleHintBox}>
+                <Text style={styles.roleHintText}>{t(lang, 'pairing.rolesHint')}</Text>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>{t(lang, 'pairing.wifeLabel')}</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder={t(lang, 'pairing.wifePlaceholder')}
+                  placeholderTextColor="#94a3b8"
+                  value={name}
+                  autoCapitalize="words"
+                  onChangeText={(v) => {
+                    setName(v);
+                    setError('');
+                  }}
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>{t(lang, 'pairing.husbandLabel')}</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder={t(lang, 'pairing.husbandPlaceholder')}
+                  placeholderTextColor="#94a3b8"
+                  value={partner}
+                  autoCapitalize="words"
+                  onChangeText={(v) => {
+                    setPartnerName(v);
+                    setError('');
+                  }}
+                />
+              </View>
 
               <BouncyPressable
                 variant="primary"
@@ -300,6 +311,27 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 3,
     gap: 12,
+  },
+  roleHintBox: {
+    backgroundColor: '#eff6ff',
+    borderColor: '#bfdbfe',
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 10,
+  },
+  roleHintText: {
+    fontSize: 12,
+    lineHeight: 17,
+    color: '#1e40af',
+    fontWeight: '600',
+  },
+  inputGroup: {
+    gap: 6,
+  },
+  inputLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#334155',
   },
   input: {
     backgroundColor: '#f8fafc',
