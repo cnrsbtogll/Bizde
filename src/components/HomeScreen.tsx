@@ -286,7 +286,7 @@ export function HomeScreen({ lang: propLang }: { lang?: Lang } = {}) {
     const localizedGoalTitle = localizeDefaultGoalText(goal.title, lang);
     Alert.alert(
       `🎉 ${t(lang, 'home.claimReward')}`,
-      t(lang, 'home.rewardForMemberAlertTitle').replace('{member}', member) + ` (${goal.targetPoints} XP)`,
+      `${t(lang, 'home.rewardForMemberAlertTitle').replace('{member}', member)}: "${localizedGoalTitle}" (${goal.targetPoints} XP)`,
       [
         { text: t(lang, 'home.cancel'), style: 'cancel' },
         {
@@ -789,19 +789,17 @@ export function HomeScreen({ lang: propLang }: { lang?: Lang } = {}) {
                 <Text style={styles.incomingBadgeText}>{incoming.length}</Text>
               </View>
             </View>
-            {incoming.map((item) => (
+            {incoming.map((item) => {
+              const tpl = item.templateId ? findTemplate(item.templateId, allTemplates) : undefined;
+              const taskTitle = tpl ? templateTitle(tpl, lang) : item.title;
+              return (
               <View key={item.id} style={styles.requestCard}>
                 <View style={styles.requestLeft}>
                   <Text style={styles.requestNote}>
                     {item.requestedBy} {t(lang, 'home.requestedBy')}:
                   </Text>
                   <Text style={styles.requestTitle}>
-                    {t(lang, 'home.couldYouPleaseDo').replace(
-                      '{title}',
-                      item.templateId
-                        ? templateTitle(findTemplate(item.templateId, allTemplates) || { id: '', category: 'ev', tr: item.title, en: item.title }, lang)
-                        : item.title
-                    )}
+                    {t(lang, 'home.couldYouPleaseDo').replace('{title}', taskTitle)}
                   </Text>
                   <Text style={styles.requestPoints}>+{item.requestedPoints} XP</Text>
                 </View>
@@ -831,7 +829,8 @@ export function HomeScreen({ lang: propLang }: { lang?: Lang } = {}) {
                   />
                 </View>
               </View>
-            ))}
+            );
+          })}
           </View>
         )}
 
@@ -886,11 +885,15 @@ export function HomeScreen({ lang: propLang }: { lang?: Lang } = {}) {
                     <Text style={styles.pendingClaimer}>
                       {isMyClaim ? `👤 ${t(lang, 'home.actorLabel')} (${item.claimedBy})` : `👤 ${item.claimedBy}`}
                     </Text>
-                    <Text style={styles.pendingTaskTitle}>
-                      {item.templateId
-                        ? templateTitle(findTemplate(item.templateId, allTemplates) || { id: '', category: 'ev', tr: item.title, en: item.title }, lang)
-                        : item.title} {isMyClaim ? `(${t(lang, 'home.youDidIt')})` : `(${t(lang, 'home.partnerDidIt')})`}
-                    </Text>
+                    {(() => {
+                      const tpl = item.templateId ? findTemplate(item.templateId, allTemplates) : undefined;
+                      const taskTitle = tpl ? templateTitle(tpl, lang) : item.title;
+                      return (
+                        <Text style={styles.pendingTaskTitle}>
+                          {taskTitle} {isMyClaim ? `(${t(lang, 'home.youDidIt')})` : `(${t(lang, 'home.partnerDidIt')})`}
+                        </Text>
+                      );
+                    })()}
                     <Text style={styles.pendingPoints}>+{item.requestedPoints} XP</Text>
                   </View>
 
