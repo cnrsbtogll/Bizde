@@ -7,6 +7,8 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import type { Goal } from '@/store';
+import { useBizde } from '@/store';
+import { t, localizeDefaultGoalText, type Lang } from '@/i18n/strings';
 import { colors, radii, spring, shadows } from '@/theme/tokens';
 
 interface PersonalGoalCardProps {
@@ -34,6 +36,7 @@ export function PersonalGoalCard({
   const emoji = badgeEmoji ?? (isFemale ? '🍷' : '🎮');
   const target = Math.max(1, goal.targetPoints);
   const percentage = Math.min(100, Math.round((points / target) * 100));
+  const lang: Lang = useBizde((s) => s.language) || 'tr';
 
   const progressAnim = useSharedValue(percentage);
 
@@ -52,7 +55,7 @@ export function PersonalGoalCard({
         <View style={styles.badgeRow}>
           <Text style={styles.badgeEmoji}>{emoji}</Text>
           <Text style={[styles.memberLabel, { color: themeColor }]}>
-            {member.toUpperCase()} İÇİN ÖDÜL
+            {t(lang, 'home.rewardFor').replace('{member}', member.toUpperCase())}
           </Text>
         </View>
         <Pressable
@@ -63,15 +66,15 @@ export function PersonalGoalCard({
           style={[styles.editBtn, { backgroundColor: isFemale ? colors.copper[50] : colors.emerald[50] }]}
           hitSlop={6}
           accessibilityRole="button"
-          accessibilityLabel={`${member} için ödülü düzenle`}
+          accessibilityLabel={`${member} ${t(lang, 'home.edit')}`}
         >
-          <Text style={[styles.editBtnText, { color: themeColor }]}>✏️ Düzenle</Text>
+          <Text style={[styles.editBtnText, { color: themeColor }]}>✏️ {t(lang, 'home.edit')}</Text>
         </Pressable>
       </View>
 
       {/* Goal Title */}
       <Text style={styles.goalTitle} numberOfLines={1}>
-        {goal.title}
+        {localizeDefaultGoalText(goal.title, lang)}
       </Text>
 
       {/* Progress Bar Track */}
@@ -88,7 +91,9 @@ export function PersonalGoalCard({
           <Text style={[styles.boldPoints, { color: themeColor }]}>{points}</Text> / {target} XP
         </Text>
         <View style={[styles.pctBadge, { backgroundColor: isFemale ? colors.copper[50] : colors.emerald[50] }]}>
-          <Text style={[styles.pctText, { color: themeColor }]}>%{percentage}</Text>
+          <Text style={[styles.pctText, { color: themeColor }]}>
+            {lang === 'tr' ? `%${percentage}` : `${percentage}%`}
+          </Text>
         </View>
       </View>
 
@@ -104,9 +109,9 @@ export function PersonalGoalCard({
             { backgroundColor: themeColor }
           ]}
           accessibilityRole="button"
-          accessibilityLabel={`${goal.title} ödülünü kullan`}
+          accessibilityLabel={`${goal.title} ${t(lang, 'home.claimReward')}`}
         >
-          <Text style={styles.claimRewardBtnText}>🎉 Ödülü Kullan</Text>
+          <Text style={styles.claimRewardBtnText}>🎉 {t(lang, 'home.claimReward')}</Text>
         </Pressable>
       )}
     </View>

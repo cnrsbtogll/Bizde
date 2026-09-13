@@ -9,17 +9,22 @@ import {
   Platform,
   Pressable,
   ActivityIndicator,
+  Modal,
+  TouchableOpacity,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import { useBizde } from '@/store';
 import { fetchCoupleDocument } from '@/services/firestore';
 import { signInAnon } from '@/firebase';
-import { t, type Lang } from '@/i18n/strings';
+import { t, SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE_OPTION, type Lang } from '@/i18n/strings';
 import { validPairingCode } from '@/lib/progress';
 import { BouncyPressable } from './game/BouncyPressable';
 import { colors, radii, shadows } from '@/theme/tokens';
 
-export function PairingScreen({ lang = 'tr' }: { lang?: Lang }) {
-  const { signIn, setPartner, createCode, joinCode, pairingCode } = useBizde();
+export function PairingScreen({ lang: propLang }: { lang?: Lang } = {}) {
+  const { signIn, setPartner, createCode, joinCode, pairingCode, language, setLanguage } = useBizde();
+  const lang: Lang = propLang ?? language ?? 'tr';
+
   const [mode, setMode] = useState<'create' | 'join'>('create');
   const [name, setName] = useState('');
   const [partner, setPartnerName] = useState('');
@@ -27,6 +32,10 @@ export function PairingScreen({ lang = 'tr' }: { lang?: Lang }) {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [foundMembers, setFoundMembers] = useState<string[] | null>(null);
+  const [langModalVisible, setLangModalVisible] = useState(false);
+
+  const currentLangOption =
+    SUPPORTED_LANGUAGES.find((item) => item.code === lang) ?? DEFAULT_LANGUAGE_OPTION;
 
   const handleCreateCode = async () => {
     if (name.trim().length === 0 || partner.trim().length === 0) {
@@ -65,28 +74,31 @@ export function PairingScreen({ lang = 'tr' }: { lang?: Lang }) {
     }
   };
 
-  const handleSelectIdentity = async (chosenName: string) => {
+  const handleSelectIdentity = async (selectedName: string) => {
     const cleanJoin = join.trim();
-    setError('');
     setLoading(true);
     try {
-      const success = await joinCode(cleanJoin, chosenName);
+      const success = await joinCode(cleanJoin, selectedName);
       if (!success) {
         setError(t(lang, 'pairing.wrongCode'));
-        setFoundMembers(null);
       }
     } catch {
       setError(t(lang, 'pairing.wrongCode'));
-      setFoundMembers(null);
     } finally {
       setLoading(false);
     }
   };
 
+  const handleSelectLanguage = (newLang: Lang) => {
+    void Haptics.selectionAsync();
+    setLanguage(newLang);
+    setLangModalVisible(false);
+  };
+
   return (
     <KeyboardAvoidingView
-      style={styles.keyboardContainer}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={Platform.OS === 'ios' ? 40 : 0}
     >
       <ScrollView
@@ -94,6 +106,22 @@ export function PairingScreen({ lang = 'tr' }: { lang?: Lang }) {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
+        {/* Top Language Switcher */}
+        <View style={styles.topBar}>
+          <TouchableOpacity
+            style={styles.langChip}
+            onPress={() => {
+              void Haptics.selectionAsync();
+              setLangModalVisible(true);
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.langChipFlag}>{currentLangOption.flag}</Text>
+            <Text style={styles.langChipText}>{currentLangOption.nativeName}</Text>
+            <Text style={styles.langChipChevron}>▾</Text>
+          </TouchableOpacity>
+        </View>
+
         <View style={styles.heroCard}>
           <View style={styles.heroBadge}>
             <Text style={styles.heroEmoji}>🌿 💖 🌿</Text>
@@ -120,6 +148,7 @@ export function PairingScreen({ lang = 'tr' }: { lang?: Lang }) {
             style={[styles.tabBtn, mode === 'join' && styles.tabBtnActive]}
             onPress={() => {
               setMode('join');
+              setFoundMembers(null);
               setError('');
             }}
           >
@@ -129,10 +158,10 @@ export function PairingScreen({ lang = 'tr' }: { lang?: Lang }) {
           </Pressable>
         </View>
 
-        <View style={styles.formCard}>
+        <View style={styles.card}>
           {mode === 'create' ? (
             <>
-              <View style={styles.roleHintBox}>
+              <View style={styles.roleHintCard}>
                 <Text style={styles.roleHintText}>{t(lang, 'pairing.rolesHint')}</Text>
               </View>
 
@@ -143,9 +172,8 @@ export function PairingScreen({ lang = 'tr' }: { lang?: Lang }) {
                   placeholder={t(lang, 'pairing.wifePlaceholder')}
                   placeholderTextColor={colors.neutral[400]}
                   value={name}
-                  autoCapitalize="words"
-                  onChangeText={(v) => {
-                    setName(v);
+                  onChangeText={(val) => {
+                    setName(val);
                     setError('');
                   }}
                 />
@@ -158,23 +186,25 @@ export function PairingScreen({ lang = 'tr' }: { lang?: Lang }) {
                   placeholder={t(lang, 'pairing.husbandPlaceholder')}
                   placeholderTextColor={colors.neutral[400]}
                   value={partner}
-                  autoCapitalize="words"
-                  onChangeText={(v) => {
-                    setPartnerName(v);
+                  onChangeText={(val) => {
+                    setPartnerName(val);
                     setError('');
                   }}
                 />
               </View>
 
+              {error ? <Text style={styles.error}>{error}</Text> : null}
+
               <BouncyPressable
                 variant="primary"
                 title={`✨ ${t(lang, 'pairing.createCode')}`}
                 onPress={handleCreateCode}
-                style={styles.btn}
+                wrapperStyle={{ width: '100%', marginTop: 8 }}
+                style={styles.primaryBtn}
               />
 
-              {pairingCode !== null && (
-                <View style={styles.codeCard}>
+              {pairingCode && (
+                <View style={styles.codeBox}>
                   <Text style={styles.codeLabel}>{t(lang, 'pairing.codeLabel')}</Text>
                   <Text style={styles.code}>{pairingCode}</Text>
                 </View>
@@ -183,10 +213,10 @@ export function PairingScreen({ lang = 'tr' }: { lang?: Lang }) {
           ) : foundMembers ? (
             <View style={styles.identitySelectCard}>
               <Text style={styles.identityTitle}>
-                {lang === 'tr' ? '👋 Hoş geldin! Sen kimsin?' : '👋 Welcome! Which one are you?'}
+                {t(lang, 'pairing.whoAreYou')}
               </Text>
               <Text style={styles.identitySubtitle}>
-                {lang === 'tr' ? 'Lütfen kendi adını seç:' : 'Please tap your name:'}
+                {t(lang, 'pairing.selectName')}
               </Text>
               <View style={styles.identityButtonsRow}>
                 {foundMembers.map((m, idx) => (
@@ -206,7 +236,7 @@ export function PairingScreen({ lang = 'tr' }: { lang?: Lang }) {
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
                 <Text style={styles.changeCodeText}>
-                  {lang === 'tr' ? '← Farklı Kod Gir' : '← Enter Different Code'}
+                  {t(lang, 'pairing.enterDifferentCode')}
                 </Text>
               </Pressable>
             </View>
@@ -220,122 +250,216 @@ export function PairingScreen({ lang = 'tr' }: { lang?: Lang }) {
                 keyboardType="number-pad"
                 maxLength={6}
                 value={join}
-                onChangeText={(v) => {
-                  setJoin(v);
+                onChangeText={(val) => {
+                  setJoin(val);
                   setError('');
                 }}
               />
-              {loading ? (
-                <ActivityIndicator size="small" color={colors.emerald[600]} style={{ marginVertical: 12 }} />
-              ) : (
-                <BouncyPressable
-                  variant="primary"
-                  title={`🔗 ${t(lang, 'pairing.joinCode')}`}
-                  onPress={handleJoinCode}
-                  style={styles.btn}
-                />
-              )}
+
+              {error ? <Text style={styles.error}>{error}</Text> : null}
+
+              <BouncyPressable
+                variant="copper"
+                title={`🔗 ${t(lang, 'pairing.joinCode')}`}
+                onPress={handleJoinCode}
+                wrapperStyle={{ width: '100%', marginTop: 8 }}
+                style={styles.primaryBtn}
+                disabled={loading}
+              />
+              {loading && <ActivityIndicator style={{ marginTop: 12 }} color={colors.copper[500]} />}
             </>
           )}
-
-          {error.length > 0 && <Text style={styles.error}>{error}</Text>}
         </View>
       </ScrollView>
+
+      {/* Language Selection Modal */}
+      <Modal
+        visible={langModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setLangModalVisible(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setLangModalVisible(false)}
+        >
+          <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>🌐 {t(lang, 'settings.selectLanguage')}</Text>
+              <TouchableOpacity
+                onPress={() => setLangModalVisible(false)}
+                style={styles.modalCloseBtn}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.langList}>
+              {SUPPORTED_LANGUAGES.map((item) => {
+                const isSelected = item.code === lang;
+                return (
+                  <TouchableOpacity
+                    key={item.code}
+                    style={[styles.langOptionRow, isSelected && styles.langOptionRowSelected]}
+                    onPress={() => handleSelectLanguage(item.code)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.langOptionFlag}>{item.flag}</Text>
+                    <View style={styles.langOptionTextCol}>
+                      <Text
+                        style={[
+                          styles.langOptionNative,
+                          isSelected && styles.langOptionNativeSelected,
+                        ]}
+                      >
+                        {item.nativeName}
+                      </Text>
+                      <Text style={styles.langOptionLabel}>{item.label}</Text>
+                    </View>
+                    {isSelected && (
+                      <View style={styles.langCheckCircle}>
+                        <Text style={styles.langCheckmark}>✓</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <BouncyPressable
+              variant="secondary"
+              title={t(lang, 'settings.close')}
+              onPress={() => setLangModalVisible(false)}
+              style={styles.modalDismissBtn}
+            />
+          </Pressable>
+        </Pressable>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  keyboardContainer: {
+  container: {
     flex: 1,
     backgroundColor: colors.neutral[50],
   },
   scrollContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    padding: 22,
-    gap: 18,
+    padding: 20,
+    paddingTop: 44,
+    paddingBottom: 40,
+    gap: 16,
+    alignItems: 'center',
+  },
+  topBar: {
+    width: '100%',
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginBottom: -6,
+  },
+  langChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.white,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: radii.full,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: colors.neutral[200],
+    ...shadows.card,
+  },
+  langChipFlag: {
+    fontSize: 16,
+  },
+  langChipText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.neutral[800],
+  },
+  langChipChevron: {
+    fontSize: 12,
+    color: colors.neutral[400],
+    fontWeight: '800',
   },
   heroCard: {
     alignItems: 'center',
     gap: 8,
+    marginVertical: 4,
   },
   heroBadge: {
-    paddingHorizontal: 16,
-    paddingVertical: 6,
     backgroundColor: colors.emerald[50],
+    paddingHorizontal: 14,
+    paddingVertical: 6,
     borderRadius: radii.full,
     borderWidth: 1,
     borderColor: colors.emerald[200],
     marginBottom: 4,
   },
   heroEmoji: {
-    fontSize: 22,
+    fontSize: 20,
   },
   title: {
     fontSize: 26,
     fontWeight: '900',
     color: colors.neutral[900],
     textAlign: 'center',
-    letterSpacing: -0.4,
   },
   sub: {
-    fontSize: 14,
+    fontSize: 13.5,
     color: colors.neutral[500],
-    fontWeight: '500',
     textAlign: 'center',
-    maxWidth: 290,
     lineHeight: 20,
+    maxWidth: 280,
   },
   tabContainer: {
     flexDirection: 'row',
-    backgroundColor: colors.neutral[100],
-    borderRadius: radii.lg,
-    padding: 5,
-    gap: 6,
-    borderWidth: 1,
-    borderColor: colors.neutral[200],
+    backgroundColor: colors.neutral[200],
+    borderRadius: radii.full,
+    padding: 4,
+    width: '100%',
   },
   tabBtn: {
     flex: 1,
-    paddingVertical: 11,
+    paddingVertical: 10,
     alignItems: 'center',
-    borderRadius: radii.md,
+    borderRadius: radii.full,
   },
   tabBtnActive: {
     backgroundColor: colors.white,
-    ...shadows.soft,
+    ...shadows.card,
   },
   tabText: {
     fontSize: 13.5,
     fontWeight: '700',
-    color: colors.neutral[500],
+    color: colors.neutral[600],
   },
   tabTextActive: {
-    color: colors.emerald[600],
-    fontWeight: '800',
+    color: colors.neutral[900],
   },
-  formCard: {
+  card: {
+    width: '100%',
     backgroundColor: colors.white,
     borderRadius: radii.xl,
-    padding: 22,
+    padding: 20,
+    gap: 16,
     borderWidth: 1,
     borderColor: colors.neutral[200],
     ...shadows.card,
-    gap: 14,
   },
-  roleHintBox: {
-    backgroundColor: colors.emerald[50],
-    borderColor: colors.emerald[200],
+  roleHintCard: {
+    backgroundColor: '#F0FDF4',
     borderWidth: 1,
+    borderColor: '#BBF7D0',
     borderRadius: radii.md,
-    padding: 12,
+    padding: 10,
   },
   roleHintText: {
-    fontSize: 12.5,
-    lineHeight: 18,
-    color: colors.emerald[800],
+    fontSize: 12,
+    color: '#166534',
     fontWeight: '600',
+    lineHeight: 17,
   },
   inputGroup: {
     gap: 6,
@@ -343,39 +467,40 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: 13,
     fontWeight: '800',
-    color: colors.neutral[800],
+    color: colors.neutral[700],
   },
   input: {
     backgroundColor: colors.neutral[50],
+    borderWidth: 1.5,
     borderColor: colors.neutral[200],
     borderRadius: radii.md,
-    borderWidth: 1.5,
-    padding: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     fontSize: 15,
     color: colors.neutral[900],
-    fontWeight: '500',
+    fontWeight: '600',
   },
   joinInput: {
-    fontSize: 26,
+    fontSize: 24,
     fontWeight: '900',
     textAlign: 'center',
-    letterSpacing: 8,
-    paddingVertical: 16,
-    color: colors.emerald[700],
+    letterSpacing: 6,
+    paddingVertical: 14,
   },
-  btn: {
-    width: '100%',
+  primaryBtn: {
     minHeight: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  codeCard: {
-    backgroundColor: colors.emerald[50],
-    borderColor: colors.emerald[200],
-    borderWidth: 1.5,
-    borderRadius: radii.lg,
+  codeBox: {
+    marginTop: 10,
     padding: 16,
+    backgroundColor: colors.emerald[50],
+    borderRadius: radii.lg,
+    borderWidth: 1.5,
+    borderColor: colors.emerald[300],
     alignItems: 'center',
     gap: 6,
-    ...shadows.soft,
   },
   codeLabel: {
     fontSize: 12,
@@ -437,5 +562,102 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: colors.neutral[500],
+  },
+
+  /* Modal Styles */
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    backgroundColor: colors.white,
+    borderRadius: radii.xl,
+    padding: 20,
+    width: '100%',
+    maxWidth: 380,
+    ...shadows.card,
+    gap: 16,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: '900',
+    color: colors.neutral[900],
+  },
+  modalCloseBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.neutral[100],
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCloseText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: colors.neutral[600],
+  },
+  langList: {
+    gap: 8,
+  },
+  langOptionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: radii.md,
+    borderWidth: 1.5,
+    borderColor: colors.neutral[200],
+    backgroundColor: colors.neutral[50],
+    gap: 12,
+  },
+  langOptionRowSelected: {
+    borderColor: colors.emerald[500],
+    backgroundColor: colors.emerald[50],
+  },
+  langOptionFlag: {
+    fontSize: 26,
+  },
+  langOptionTextCol: {
+    flex: 1,
+    gap: 2,
+  },
+  langOptionNative: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: colors.neutral[800],
+  },
+  langOptionNativeSelected: {
+    color: colors.emerald[800],
+  },
+  langOptionLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.neutral[400],
+  },
+  langCheckCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.emerald[600],
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  langCheckmark: {
+    color: colors.white,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  modalDismissBtn: {
+    marginTop: 4,
+    minHeight: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

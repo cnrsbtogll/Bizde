@@ -5,6 +5,8 @@ import * as Haptics from 'expo-haptics';
 import { BouncyPressable } from './BouncyPressable';
 import confettiSource from '../../../assets/animations/confetti.json';
 import { colors, radii, shadows } from '@/theme/tokens';
+import { useBizde } from '@/store';
+import { t, localizeDefaultGoalText, type Lang } from '@/i18n/strings';
 
 interface MilestoneRewardModalProps {
   visible: boolean;
@@ -23,6 +25,8 @@ export function MilestoneRewardModal({
   onClaimBreak,
   onClose,
 }: MilestoneRewardModalProps) {
+  const lang: Lang = useBizde((s) => s.language) || 'tr';
+
   useEffect(() => {
     if (visible) {
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -56,23 +60,25 @@ export function MilestoneRewardModal({
             <Text style={styles.iconEmoji}>{emoji}</Text>
           </View>
 
-          <Text style={styles.badgeLabel}>✨ %{milestonePct} ARA HEDEF AÇILDI!</Text>
-          <Text style={styles.rewardTitle}>{rewardTitle}</Text>
+          <Text style={styles.badgeLabel}>
+            ✨ {lang === 'tr' ? `%${milestonePct}` : `${milestonePct}%`} {t(lang, 'milestones.unlocked')}
+          </Text>
+          <Text style={styles.rewardTitle}>{localizeDefaultGoalText(rewardTitle, lang)}</Text>
           <Text style={styles.description}>
-            Tebrikler! Birlikte harika bir uyum yakaladınız. Şimdi işleri kısa bir süre kenara bırakıp {partnerName} ile birlikte bu ödülün tadını çıkarma ve mola verme vakti!
+            {t(lang, 'milestones.desc').replace('{partner}', partnerName)}
           </Text>
 
           <View style={styles.actions}>
             <BouncyPressable
               variant="copper"
-              title={`${emoji} Molayı Başlat & Kutla`}
+              title={`${emoji} ${t(lang, 'milestones.claimBreak')}`}
               onPress={onClaimBreak}
               style={styles.button}
               textStyle={styles.btnText}
             />
             <BouncyPressable
               variant="ghost"
-              title="Harika, Devam Edelim"
+              title={t(lang, 'milestones.continue')}
               onPress={onClose}
               style={styles.secondaryBtn}
             />
@@ -158,4 +164,3 @@ const styles = StyleSheet.create({
     minHeight: 42,
   },
 });
-

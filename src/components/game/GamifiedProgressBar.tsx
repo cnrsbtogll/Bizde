@@ -15,6 +15,8 @@ import Animated, {
 } from 'react-native-reanimated';
 import { MILESTONES, type Milestone } from '@/lib/progress';
 import { colors, radii, spring, shadows } from '@/theme/tokens';
+import { useBizde } from '@/store';
+import { t, localizeDefaultGoalText, type Lang } from '@/i18n/strings';
 
 interface GamifiedProgressBarProps {
   total: number;
@@ -69,6 +71,7 @@ export function GamifiedProgressBar({
   }));
 
   const percentage = Math.round(fraction * 100);
+  const lang: Lang = useBizde((s) => s.language) || 'tr';
 
   return (
     <View style={styles.card}>
@@ -76,7 +79,7 @@ export function GamifiedProgressBar({
       <View style={styles.topHeaderRow}>
         <View style={styles.badgeRow}>
           <Text style={styles.badgeEmoji}>🏆</Text>
-          <Text style={styles.badgeLabel}>ORTAK HEDEF</Text>
+          <Text style={styles.badgeLabel}>{t(lang, 'home.commonGoalHeader')}</Text>
         </View>
         <Pressable
           onPress={() => {
@@ -86,16 +89,16 @@ export function GamifiedProgressBar({
           style={styles.editBtn}
           hitSlop={8}
           accessibilityRole="button"
-          accessibilityLabel="Ortak Hedefi Düzenle"
+          accessibilityLabel={`${t(lang, 'home.commonGoalHeader')} ${t(lang, 'home.edit')}`}
         >
-          <Text style={styles.editBtnText}>✏️ Düzenle</Text>
+          <Text style={styles.editBtnText}>✏️ {t(lang, 'home.edit')}</Text>
         </Pressable>
       </View>
 
       {/* Goal Title */}
       {goalTitle ? (
         <Text style={styles.goalMainTitle} numberOfLines={1}>
-          {goalTitle}
+          {localizeDefaultGoalText(goalTitle, lang)}
         </Text>
       ) : null}
 
@@ -104,12 +107,16 @@ export function GamifiedProgressBar({
         <View style={styles.milestonesMiniRow}>
           {m25Title ? (
             <View style={styles.miniMilestonePill}>
-              <Text style={styles.miniMilestoneText}>☕ %25: {m25Title}</Text>
+              <Text style={styles.miniMilestoneText}>
+                ☕ {lang === 'tr' ? '%25: ' : '25%: '}{localizeDefaultGoalText(m25Title, lang)}
+              </Text>
             </View>
           ) : null}
           {m60Title ? (
             <View style={styles.miniMilestonePill}>
-              <Text style={styles.miniMilestoneText}>🎬 %60: {m60Title}</Text>
+              <Text style={styles.miniMilestoneText}>
+                🎬 {lang === 'tr' ? '%60: ' : '60%: '}{localizeDefaultGoalText(m60Title, lang)}
+              </Text>
             </View>
           ) : null}
         </View>
@@ -118,7 +125,7 @@ export function GamifiedProgressBar({
       {/* Target XP & Stepper Row */}
       <View style={styles.targetRow}>
         <View style={styles.targetBadge}>
-          <Text style={styles.targetBadgeText}>HEDEF XP</Text>
+          <Text style={styles.targetBadgeText}>{t(lang, 'home.targetXp')}</Text>
         </View>
 
         <View style={styles.targetControlGroup}>
@@ -207,7 +214,7 @@ export function GamifiedProgressBar({
                 numberOfLines={1}
                 style={[styles.pinPctLabel, isReached && styles.pinPctLabelReached]}
               >
-                %{m.pct}
+                {lang === 'tr' ? `%${m.pct}` : `${m.pct}%`}
               </Text>
             </Pressable>
           );
@@ -222,7 +229,7 @@ export function GamifiedProgressBar({
             {member1Name}: <Text style={styles.legendValue}>{member1Points}</Text>
           </Text>
         </View>
-        <Text style={styles.pctBadge}>%{percentage}</Text>
+        <Text style={styles.pctBadge}>{lang === 'tr' ? `%${percentage}` : `${percentage}%`}</Text>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: color2 }]} />
           <Text style={styles.legendText}>

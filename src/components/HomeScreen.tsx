@@ -39,7 +39,7 @@ import {
   type TaskCategory,
   type TaskTemplate,
 } from '@/mock/catalog';
-import { t, type Lang } from '@/i18n/strings';
+import { t, localizeDefaultGoalText, type Lang } from '@/i18n/strings';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BouncyPressable } from './game/BouncyPressable';
 import { GamifiedProgressBar } from './game/GamifiedProgressBar';
@@ -54,9 +54,11 @@ import { colors, radii, shadows } from '@/theme/tokens';
 
 const BAR_COLORS = [colors.copper[500], colors.emerald[600]];
 
-export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
+export function HomeScreen({ lang: propLang }: { lang?: Lang } = {}) {
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = useState<'home' | 'settings'>('home');
+  const storeLang = useBizde((s) => s.language);
+  const lang: Lang = propLang ?? storeLang ?? 'tr';
   const {
     pairingCode,
     partnerJoined,
@@ -129,8 +131,8 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     setBurstData({
       id: Date.now().toString(),
-      text: '💋 ÖPÜCÜK FIRLATILDI!',
-      subText: `${receiverName}'a kocaman bir öpücük gönderdin!`,
+      text: t(lang, 'burst.kissTitle'),
+      subText: t(lang, 'burst.kissSub').replace('{partner}', receiverName),
       emoji: '💋',
     });
   };
@@ -140,18 +142,18 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     setBurstData({
       id: Date.now().toString(),
-      text: '+50 XP SEVGİ PUANI!',
-      subText: `💖 ${partnerName}'a teşekkür ettin!`,
+      text: t(lang, 'burst.appreciateTitle'),
+      subText: t(lang, 'burst.appreciateSub').replace('{partner}', partnerName),
       emoji: '💋',
     });
   };
 
   const applyGoalPackage = (pkg: GoalPackage) => {
     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setGoalTitle(lang === 'tr' ? pkg.titleTr : pkg.titleEn);
+    setGoalTitle(lang === 'tr' ? pkg.titleTr : (pkg.titleEn || pkg.titleTr));
     setGoalTarget(String(pkg.targetPoints));
-    setM25Title((lang === 'tr' ? pkg.m25Tr : pkg.m25En) || '');
-    setM60Title((lang === 'tr' ? pkg.m60Tr : pkg.m60En) || '');
+    setM25Title((lang === 'tr' ? pkg.m25Tr : (pkg.m25En || pkg.m25Tr)) || '');
+    setM60Title((lang === 'tr' ? pkg.m60Tr : (pkg.m60En || pkg.m60Tr)) || '');
   };
 
   const total = totalPoints(activities);
@@ -234,8 +236,8 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         setBurstData({
           id: Date.now().toString(),
-          text: `+${effectivePoints} XP TALEP EDİLDİ!`,
-          subText: '⚡ Eşinin onayına gönderildi',
+          text: t(lang, 'burst.claimTitle').replace('{points}', String(effectivePoints)),
+          subText: t(lang, 'burst.claimSub'),
           emoji: '🚀',
         });
       }
@@ -246,8 +248,8 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
         setBurstData({
           id: Date.now().toString(),
-          text: 'İSTEK İLETİLDİ!',
-          subText: `💌 ${partnerName}'a rica iletildi`,
+          text: t(lang, 'burst.requestTitle'),
+          subText: t(lang, 'burst.requestSub').replace('{partner}', partnerName),
           emoji: '💌',
         });
       }
@@ -257,10 +259,10 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
   const openEditGoalModal = () => {
     setEditingGoalTarget('common');
     setGoalModalMode('edit');
-    setGoalTitle(activeGoal.title);
+    setGoalTitle(localizeDefaultGoalText(activeGoal.title, lang));
     setGoalTarget(String(activeGoal.targetPoints));
-    setM25Title(activeGoal.m25Title || 'Kahve Kaçamağı');
-    setM60Title(activeGoal.m60Title || 'Film Gecesi');
+    setM25Title(localizeDefaultGoalText(activeGoal.m25Title || 'Kahve Kaçamağı', lang));
+    setM60Title(localizeDefaultGoalText(activeGoal.m60Title || 'Film Gecesi', lang));
     setSuggestionAudience('ortak');
     setError('');
     setGoalModal(true);
@@ -270,10 +272,10 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
     const goal = getPersonalGoal(personalGoals, member, members);
     setEditingGoalTarget(member);
     setGoalModalMode('edit');
-    setGoalTitle(goal.title);
+    setGoalTitle(localizeDefaultGoalText(goal.title, lang));
     setGoalTarget(String(goal.targetPoints));
-    setM25Title(goal.m25Title || '');
-    setM60Title(goal.m60Title || '');
+    setM25Title(localizeDefaultGoalText(goal.m25Title || '', lang));
+    setM60Title(localizeDefaultGoalText(goal.m60Title || '', lang));
     setSuggestionAudience(isFemale ? 'kadin_icin' : 'erkek_icin');
     setError('');
     setGoalModal(true);
@@ -281,25 +283,20 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
 
   const handleClaimPersonalReward = (member: string) => {
     const goal = getPersonalGoal(personalGoals, member, members);
+    const localizedGoalTitle = localizeDefaultGoalText(goal.title, lang);
     Alert.alert(
-      lang === 'tr' ? '🎉 Ödülü Kullan' : '🎉 Claim Reward',
-      lang === 'tr'
-        ? `"${goal.title}" ödülünü kullanmak için eşine onay isteği gönderilsin mi? (${goal.targetPoints} XP harcanacak, artan puanların yeni ödüle devredecektir.)`
-        : `Do you want to send an approval request to your partner to claim "${goal.title}"? (${goal.targetPoints} XP will be spent, excess points will carry over.)`,
+      `🎉 ${t(lang, 'home.claimReward')}`,
+      t(lang, 'home.rewardForMemberAlertTitle').replace('{member}', member) + ` (${goal.targetPoints} XP)`,
       [
-        { text: lang === 'tr' ? 'Vazgeç' : 'Cancel', style: 'cancel' },
+        { text: t(lang, 'home.cancel'), style: 'cancel' },
         {
-          text: lang === 'tr' ? 'Onaya Gönder' : 'Send for Approval',
+          text: t(lang, 'home.sendForApproval'),
           style: 'default',
           onPress: () => {
             void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             const ok = proposeRewardClaim(member);
             if (ok) {
-              setProposalFeedback(
-                lang === 'tr'
-                  ? '🎁 Ödül kullanım talebi eşine iletildi. Onayı bekleniyor...'
-                  : '🎁 Reward claim request sent to partner. Awaiting approval...'
-              );
+              setProposalFeedback(t(lang, 'home.rewardClaimSentAlert'));
             }
           },
         },
@@ -333,9 +330,9 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
     const clamped = clampPoints(pts, editingTask);
     if (!Number.isFinite(pts) || pts !== clamped) {
       setError(
-        lang === 'tr'
-          ? `Puan ${editingTask.minPoints} ile ${editingTask.maxPoints} arasında olmalıdır.`
-          : `Points must be between ${editingTask.minPoints} and ${editingTask.maxPoints}.`
+        t(lang, 'home.pointsRangeNotice')
+          .replace('{min}', String(editingTask.minPoints))
+          .replace('{max}', String(editingTask.maxPoints))
       );
       return;
     }
@@ -373,8 +370,8 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       setBurstData({
         id: Date.now().toString(),
-        text: `+${finalPoints} XP KAZANILDI!`,
-        subText: '🎉 Harikasınız! Görev Onaylandı',
+        text: t(lang, 'burst.approveTitle').replace('{points}', String(finalPoints)),
+        subText: t(lang, 'burst.approveSub'),
         emoji: '🎯',
       });
     }
@@ -387,8 +384,8 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
     if (!goalTitle.trim() || !Number.isInteger(pts) || pts < minPts || pts > maxPts) {
       setError(
         editingGoalTarget === 'common'
-          ? (lang === 'tr' ? 'Ortak hedef 150 - 600 puan arasında olmalıdır.' : 'Common goal must be 150 - 600 points.')
-          : (lang === 'tr' ? 'Kişisel hedef 100 - 400 puan arasında olmalıdır.' : 'Personal goal must be 100 - 400 points.')
+          ? t(lang, 'home.commonGoalRangeError')
+          : t(lang, 'home.personalGoalRangeError')
       );
       return;
     }
@@ -408,11 +405,7 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
       }
       setGoalModal(false);
       setError('');
-      setProposalFeedback(
-        lang === 'tr'
-          ? '🎯 Hedef teklifi eşine iletildi! Karşılıklı mutabakat bekleniyor.'
-          : '🎯 Goal proposal sent to partner! Awaiting mutual approval.'
-      );
+      setProposalFeedback(t(lang, 'home.goalProposalSent'));
       return;
     }
 
@@ -451,13 +444,13 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
         <View style={styles.headerLeftContainer}>
           <Text style={styles.welcomeText}>
             {activeTab === 'home'
-              ? `👋 ${lang === 'tr' ? `Hoş geldin, ${actor || members[0] || ''}` : `Welcome, ${actor || members[0] || ''}`}`
-              : `⚙️ ${lang === 'tr' ? 'Ayarlar' : 'Settings'}`}
+              ? `👋 ${t(lang, 'home.welcome')}, ${actor || members[0] || ''}`
+              : `⚙️ ${t(lang, 'home.settings')}`}
           </Text>
         </View>
 
         <View style={styles.headerRightActions}>
-          <StreakBadge streakDays={streak} label={lang === 'tr' ? 'Gün' : 'Days'} />
+          <StreakBadge streakDays={streak} label={t(lang, 'home.streakDays')} />
         </View>
       </View>
 
@@ -483,13 +476,13 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
               <Text style={{ color: '#059669', fontSize: 16, fontWeight: '700' }}>✕</Text>
             </Pressable>
             <Text style={{ color: '#059669', fontWeight: '700', fontSize: 13, textAlign: 'center', paddingHorizontal: 20 }}>
-              {lang === 'tr' ? 'Partnerine bu kodu vererek seni eklemesini sağlayabilirsin:' : 'Share this code with your partner to join:'}
+              {t(lang, 'home.shareCodeHint')}
             </Text>
             <Text style={{ fontSize: 30, fontWeight: '900', letterSpacing: 6, color: '#065f46', marginVertical: 6 }}>
               {pairingCode}
             </Text>
             <Text style={{ color: '#64748b', fontSize: 11, fontWeight: '600' }}>
-              {lang === 'tr' ? '⏳ Eşiniz koda katıldığında bu alan otomatik kapanır.' : '⏳ Automatically closes when your partner joins.'}
+              {t(lang, 'home.codeAutoClosesHint')}
             </Text>
           </View>
         )}
@@ -501,15 +494,13 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
               <Text style={styles.proposalIcon}>🤝</Text>
               <View style={styles.proposalHeaderTextCol}>
                 <Text style={styles.proposalTitle}>
-                  {lang === 'tr' ? 'Hedef Değişiklik Teklifi' : 'Goal Change Proposal'}
+                  {t(lang, 'home.goalChangeProposal')}
                 </Text>
                 <Text style={styles.proposalSubtext}>
                   {pendingGoalProposal.proposedBy}{' '}
                   {pendingGoalProposal.targetType === 'common'
-                    ? (lang === 'tr' ? 'ortak hedef için önerdi:' : 'proposed for common goal:')
-                    : (lang === 'tr'
-                      ? `${pendingGoalProposal.targetMember || ''} hedefi için önerdi:`
-                      : `proposed for ${pendingGoalProposal.targetMember || ''}'s goal:`)}
+                    ? t(lang, 'home.proposedForCommonGoal')
+                    : t(lang, 'home.proposedForPersonalGoal').replace('{member}', pendingGoalProposal.targetMember || '')}
                 </Text>
               </View>
             </View>
@@ -522,7 +513,7 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
                 <Text style={styles.proposalBadgeText}>{pendingGoalProposal.targetPoints} XP</Text>
                 {pendingGoalProposal.m25Title && (
                   <Text style={styles.proposalSubBadgeText}>
-                    %25: {pendingGoalProposal.m25Title}
+                    {lang === 'tr' ? '%25: ' : '25%: '}{localizeDefaultGoalText(pendingGoalProposal.m25Title, lang)}
                   </Text>
                 )}
               </View>
@@ -532,27 +523,21 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
               <View style={styles.proposalActionsRow}>
                 <BouncyPressable
                   variant="primary"
-                  title={lang === 'tr' ? '✅ Onayla' : '✅ Accept'}
+                  title={`✅ ${t(lang, 'home.approve')}`}
                   onPress={() => {
                     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                     acceptGoalProposal();
-                    setProposalFeedback(
-                      lang === 'tr'
-                        ? '🎉 Yeni hedef mutabakatla onaylandı!'
-                        : '🎉 Goal mutually approved!'
-                    );
+                    setProposalFeedback(t(lang, 'home.goalProposalApprovedFeedback'));
                   }}
                   style={styles.proposalActionBtn}
                 />
                 <BouncyPressable
                   variant="ghost"
-                  title={lang === 'tr' ? '❌ Reddet' : '❌ Decline'}
+                  title={`❌ ${t(lang, 'home.reject')}`}
                   onPress={() => {
                     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                     rejectGoalProposal();
-                    setProposalFeedback(
-                      lang === 'tr' ? 'Hedef teklifi reddedildi.' : 'Goal proposal declined.'
-                    );
+                    setProposalFeedback(t(lang, 'home.goalProposalDeclinedFeedback'));
                   }}
                   style={styles.proposalActionBtn}
                 />
@@ -561,20 +546,18 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
               <View style={styles.proposalWaitingCol}>
                 <View style={styles.proposalWaitingRow}>
                   <Text style={styles.proposalWaitingText}>
-                    ⏳ {lang === 'tr' ? 'Eşinin onayı bekleniyor...' : 'Awaiting partner approval...'}
+                    ⏳ {t(lang, 'home.awaitingPartnerApproval')}
                   </Text>
                   <Pressable
                     onPress={() => {
                       void Haptics.selectionAsync();
                       rejectGoalProposal();
-                      setProposalFeedback(
-                        lang === 'tr' ? 'Teklif geri çekildi.' : 'Proposal retracted.'
-                      );
+                      setProposalFeedback(t(lang, 'home.goalProposalRetractedFeedback'));
                     }}
                     style={styles.proposalCancelBtn}
                   >
                     <Text style={styles.proposalCancelText}>
-                      {lang === 'tr' ? 'Geri Çek' : 'Cancel'}
+                      {t(lang, 'home.retractRequest')}
                     </Text>
                   </Pressable>
                 </View>
@@ -590,12 +573,10 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
               <Text style={styles.proposalIcon}>🎁</Text>
               <View style={styles.proposalHeaderTextCol}>
                 <Text style={[styles.proposalTitle, { color: colors.copper[900] }]}>
-                  {lang === 'tr' ? 'Ödül Kullanım Talebi' : 'Reward Claim Request'}
+                  {t(lang, 'home.rewardClaimRequest')}
                 </Text>
                 <Text style={[styles.proposalSubtext, { color: colors.copper[700] }]}>
-                  {lang === 'tr'
-                    ? `${pendingRewardClaim.member} kazandığı ödülü kullanmak istiyor:`
-                    : `${pendingRewardClaim.member} wants to claim their earned reward:`}
+                  {t(lang, 'home.wantsToClaimReward').replace('{member}', pendingRewardClaim.member)}
                 </Text>
               </View>
             </View>
@@ -613,27 +594,21 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
               <View style={styles.proposalActionsRow}>
                 <BouncyPressable
                   variant="primary"
-                  title={lang === 'tr' ? '✅ Onayla' : '✅ Accept'}
+                  title={`✅ ${t(lang, 'home.approve')}`}
                   onPress={() => {
                     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                     acceptRewardClaim();
-                    setProposalFeedback(
-                      lang === 'tr'
-                        ? '🎉 Ödül kullanımı onaylandı!'
-                        : '🎉 Reward claim approved!'
-                    );
+                    setProposalFeedback(t(lang, 'home.rewardClaimApprovedFeedback'));
                   }}
                   style={styles.proposalActionBtn}
                 />
                 <BouncyPressable
                   variant="ghost"
-                  title={lang === 'tr' ? '❌ Reddet' : '❌ Decline'}
+                  title={`❌ ${t(lang, 'home.reject')}`}
                   onPress={() => {
                     void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
                     rejectRewardClaim();
-                    setProposalFeedback(
-                      lang === 'tr' ? 'Ödül kullanım talebi reddedildi.' : 'Reward claim declined.'
-                    );
+                    setProposalFeedback(t(lang, 'home.rewardClaimDeclinedFeedback'));
                   }}
                   style={styles.proposalActionBtn}
                 />
@@ -642,20 +617,18 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
               <View style={styles.proposalWaitingCol}>
                 <View style={styles.proposalWaitingRow}>
                   <Text style={styles.proposalWaitingText}>
-                    ⏳ {lang === 'tr' ? 'Eşinin onayı bekleniyor...' : 'Awaiting partner approval...'}
+                    ⏳ {t(lang, 'home.awaitingPartnerApproval')}
                   </Text>
                   <Pressable
                     onPress={() => {
                       void Haptics.selectionAsync();
                       rejectRewardClaim();
-                      setProposalFeedback(
-                        lang === 'tr' ? 'Talep geri çekildi.' : 'Request retracted.'
-                      );
+                      setProposalFeedback(t(lang, 'home.requestRetractedFeedback'));
                     }}
                     style={styles.proposalCancelBtn}
                   >
                     <Text style={styles.proposalCancelText}>
-                      {lang === 'tr' ? 'Geri Çek' : 'Cancel'}
+                      {t(lang, 'home.retractRequest')}
                     </Text>
                   </Pressable>
                 </View>
@@ -671,19 +644,19 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
               <Text style={styles.proposalIcon}>🥳</Text>
               <View style={styles.proposalHeaderTextCol}>
                 <Text style={[styles.proposalTitle, { color: '#166534' }]}>
-                  {lang === 'tr' ? '🎉 Harika Haber!' : '🎉 Great News!'}
+                  {t(lang, 'home.greatNewsTitle')}
                 </Text>
                 <Text style={[styles.proposalSubtext, { color: '#15803D', fontSize: 13, marginTop: 2 }]}>
-                  {lang === 'tr'
-                    ? `${lastApprovedRewardClaim.approvedBy} kazandığın "${lastApprovedRewardClaim.rewardTitle}" ödülünü onayladı. Gün içinde keyifle kullanabilirsin!`
-                    : `${lastApprovedRewardClaim.approvedBy} approved your "${lastApprovedRewardClaim.rewardTitle}" reward. Enjoy it today!`}
+                  {t(lang, 'home.greatNewsSub')
+                    .replace('{approver}', lastApprovedRewardClaim.approvedBy)
+                    .replace('{reward}', localizeDefaultGoalText(lastApprovedRewardClaim.rewardTitle, lang))}
                 </Text>
               </View>
             </View>
             <View style={{ alignItems: 'flex-end', marginTop: 6 }}>
               <BouncyPressable
                 variant="primary"
-                title={lang === 'tr' ? 'Harika, Teşekkürler! 🎉' : 'Awesome, Thanks! 🎉'}
+                title={t(lang, 'home.awesomeThanks')}
                 onPress={() => {
                   void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                   dismissApprovedRewardClaim();
@@ -733,15 +706,15 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
         <View style={{ alignItems: 'center', marginBottom: 12 }}>
           <BouncyPressable
             variant="ghost"
-            title={showIndividualGoals ? "👀 Bireysel Ödülleri Kapat" : "👀 Bireysel Ödülleri Aç"}
+            title={showIndividualGoals ? t(lang, 'home.hideIndividualGoals') : t(lang, 'home.showIndividualGoals')}
             onPress={() => {
               Alert.alert(
-                "Bireysel Ödüller",
-                "Uygulamamızın temel amacı aranızda bir rekabet ve çatışma doğurmak değil, birlikte zaman geçirmektir. Eğer bireysel ödüller (erkeğin / kadının ödülleri) adil hissettirmiyor veya bir rekabet yaratıyorsa, sadece Ortak Hedefe odaklanmak için bu kartları tamamen kapatabilirsiniz. (Kapatıldığında iki taraf için de gizlenir ve tamamen adil olur.)",
+                t(lang, 'settings.individualGoals'),
+                t(lang, 'settings.individualGoalsSub'),
                 [
-                  { text: "Vazgeç", style: "cancel" },
+                  { text: t(lang, 'home.cancel'), style: "cancel" },
                   {
-                    text: showIndividualGoals ? "Kapat" : "Aç",
+                    text: showIndividualGoals ? t(lang, 'settings.hideCode') : t(lang, 'settings.showCode'),
                     style: showIndividualGoals ? "destructive" : "default",
                     onPress: () => setShowIndividualGoals(!showIndividualGoals)
                   }
@@ -794,7 +767,7 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
                 variant={isAppreciated ? 'ghost' : 'love'}
                 title={
                   isAppreciated
-                    ? (lang === 'tr' ? '💖 Teşekkür Edildi' : '💖 Appreciated')
+                    ? t(lang, 'home.appreciated')
                     : `💖 ${t(lang, 'home.thanks')}`
                 }
                 disabled={isAppreciated}
@@ -823,7 +796,12 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
                     {item.requestedBy} {t(lang, 'home.requestedBy')}:
                   </Text>
                   <Text style={styles.requestTitle}>
-                    {lang === 'tr' ? `"${item.title}" görevini yapmanı rica ederim.` : `Could you please do: "${item.title}"?`}
+                    {t(lang, 'home.couldYouPleaseDo').replace(
+                      '{title}',
+                      item.templateId
+                        ? templateTitle(findTemplate(item.templateId, allTemplates) || { id: '', category: 'ev', tr: item.title, en: item.title }, lang)
+                        : item.title
+                    )}
                   </Text>
                   <Text style={styles.requestPoints}>+{item.requestedPoints} XP</Text>
                 </View>
@@ -836,8 +814,8 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
                       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                       setBurstData({
                         id: Date.now().toString(),
-                        text: `+${item.requestedPoints} XP TAMAMLANDI!`,
-                        subText: '✨ Eşinin onayına sunuldu!',
+                        text: t(lang, 'burst.completedTitle').replace('{points}', String(item.requestedPoints)),
+                        subText: t(lang, 'burst.completedSub'),
                         emoji: '💫',
                       });
                     }}
@@ -861,12 +839,15 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
         {outgoing.length > 0 && (
           <View style={styles.outgoingSection}>
             <Text style={styles.outgoingSubtitle}>
-              ⏳ {lang === 'tr' ? "Eşine gönderdiğin istekler:" : "Requests sent to partner:"}
+              ⏳ {t(lang, 'home.requestsSentToPartner')}
             </Text>
-            {outgoing.map((item) => (
+            {outgoing.map((item) => {
+              const tpl = item.templateId ? findTemplate(item.templateId, allTemplates) : undefined;
+              const taskTitle = tpl ? templateTitle(tpl, lang) : item.title;
+              return (
               <View key={item.id} style={styles.outgoingCard}>
                 <Text style={styles.outgoingText}>
-                  {item.title} (+{item.requestedPoints} XP)
+                  {taskTitle} (+{item.requestedPoints} XP)
                 </Text>
                 <BouncyPressable
                   variant="ghost"
@@ -876,7 +857,8 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
                   textStyle={styles.cancelMiniText}
                 />
               </View>
-            ))}
+            );
+            })}
           </View>
         )}
 
@@ -902,10 +884,12 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
                 <View key={item.id} style={styles.pendingCard}>
                   <View style={styles.pendingLeft}>
                     <Text style={styles.pendingClaimer}>
-                      {isMyClaim ? `👤 Sen (${item.claimedBy})` : `👤 ${item.claimedBy}`}
+                      {isMyClaim ? `👤 ${t(lang, 'home.actorLabel')} (${item.claimedBy})` : `👤 ${item.claimedBy}`}
                     </Text>
                     <Text style={styles.pendingTaskTitle}>
-                      {item.title} {isMyClaim ? `(yaptın)` : `(yaptı)`}
+                      {item.templateId
+                        ? templateTitle(findTemplate(item.templateId, allTemplates) || { id: '', category: 'ev', tr: item.title, en: item.title }, lang)
+                        : item.title} {isMyClaim ? `(${t(lang, 'home.youDidIt')})` : `(${t(lang, 'home.partnerDidIt')})`}
                     </Text>
                     <Text style={styles.pendingPoints}>+{item.requestedPoints} XP</Text>
                   </View>
@@ -914,7 +898,7 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
                     // Self-approval guarded: Actor sees waiting status, cannot approve own claim!
                     <View style={styles.waitingBadge}>
                       <Text style={styles.waitingText}>
-                        🕒 {partnerName}{"'ın"} {t(lang, 'home.waitingApproval')}
+                        🕒 {t(lang, 'home.waitingPartnerApproval').replace('{partner}', partnerName)}
                       </Text>
                     </View>
                   ) : (
@@ -957,8 +941,8 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
               >
                 <Text style={styles.showMoreText}>
                   {showAllPending
-                    ? (lang === 'tr' ? '▲ Daha Az Göster' : '▲ Show Less')
-                    : (lang === 'tr' ? `▼ Daha Fazla Göster (+${pending.length - 3})` : `▼ Show More (+${pending.length - 3})`)}
+                    ? t(lang, 'home.less')
+                    : t(lang, 'home.more').replace('{count}', String(pending.length - 3))}
                 </Text>
               </Pressable>
             )}
@@ -976,9 +960,11 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
             {(showAllHistory ? history : history.slice(0, 3)).map((item) => {
               const isApproved = item.status === 'approved';
               const isAppreciation = item.type === 'appreciation' || item.title.toLowerCase().includes('takdir') || item.title.toLowerCase().includes('teşekkür');
+              const tpl = item.templateId ? findTemplate(item.templateId, allTemplates) : undefined;
+              const taskTitle = tpl ? templateTitle(tpl, lang) : item.title;
               const displayText = isAppreciation
-                ? (lang === 'tr' ? 'Teşekkür etti' : 'Said thanks')
-                : `${item.title} ${isApproved ? (lang === 'tr' ? '(yaptı)' : '(did it)') : (lang === 'tr' ? '(olmadı)' : '(rejected)')}`;
+                ? t(lang, 'home.thanks')
+                : `${taskTitle} ${isApproved ? `(${t(lang, 'home.partnerDidIt')})` : `(${t(lang, 'home.rejected')})`}`;
 
               return (
                 <View key={item.id} style={[styles.historyCard, !isApproved && styles.historyRejectedCard]}>
@@ -1028,8 +1014,8 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
               >
                 <Text style={styles.showMoreText}>
                   {showAllHistory
-                    ? (lang === 'tr' ? '▲ Daha Az Göster' : '▲ Show Less')
-                    : (lang === 'tr' ? `▼ Daha Fazla Göster (+${history.length - 3})` : `▼ Show More (+${history.length - 3})`)}
+                    ? t(lang, 'home.less')
+                    : t(lang, 'home.more').replace('{count}', String(history.length - 3))}
                 </Text>
               </Pressable>
             )}
@@ -1180,11 +1166,11 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
               <Text style={styles.sheetTitle}>
                 {editingGoalTarget === 'common'
                   ? (goalModalMode === 'edit'
-                    ? (lang === 'tr' ? '✏️ Ortak Hedefi Düzenle' : '✏️ Edit Common Goal')
-                    : (lang === 'tr' ? '🏆 Yeni Ortak Hedef' : '🏆 New Common Goal'))
+                    ? t(lang, 'home.editCommonGoalModal')
+                    : t(lang, 'home.newCommonGoalModal'))
                   : (editingGoalTarget === femaleMember
-                    ? `🍷 ${femaleMember} İçin Ödül`
-                    : `🎮 ${maleMember} İçin Ödül`)}
+                    ? `🍷 ${t(lang, 'home.rewardFor').replace('{member}', femaleMember)}`
+                    : `🎮 ${t(lang, 'home.rewardFor').replace('{member}', maleMember)}`)}
               </Text>
               <BouncyPressable
                 variant="ghost"
@@ -1207,8 +1193,8 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
               {/* Ready-made Goal/Reward Packages - Filtered by Target */}
               <Text style={styles.pkgSectionTitle}>
                 {editingGoalTarget === 'common'
-                  ? (lang === 'tr' ? '🎁 Hazır Hedef Paketleri (Tek Tıkla Yükle)' : '🎁 Ready Goal Packages (One-Tap Load)')
-                  : (lang === 'tr' ? '🎁 Hazır Ödül Paketleri (Tek Tıkla Yükle)' : '🎁 Ready Reward Packages (One-Tap Load)')}
+                  ? t(lang, 'home.readyPackagesGoal')
+                  : t(lang, 'home.readyPackagesReward')}
               </Text>
               <ScrollView
                 horizontal
@@ -1220,7 +1206,7 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
                   if (editingGoalTarget === maleMember) return pkg.audience === 'erkek_icin';
                   return pkg.audience === 'ortak';
                 }).map((pkg) => {
-                  const title = lang === 'tr' ? pkg.titleTr : pkg.titleEn;
+                  const title = lang === 'tr' ? pkg.titleTr : (pkg.titleEn || pkg.titleTr);
                   const isSelected = goalTitle === title;
                   return (
                     <Pressable
@@ -1253,8 +1239,8 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
                 {editingGoalTarget === 'common'
                   ? `🏆 ${t(lang, 'home.goal')} (Büyük Hedef - %100)`
                   : (editingGoalTarget === femaleMember
-                    ? `🍷 ${femaleMember} İçin Ödül`
-                    : `🎮 ${maleMember} İçin Ödül`)}
+                    ? `🍷 ${t(lang, 'home.rewardFor').replace('{member}', femaleMember)}`
+                    : `🎮 ${t(lang, 'home.rewardFor').replace('{member}', maleMember)}`)}
               </Text>
               <TextInput
                 style={styles.input}
@@ -1289,8 +1275,8 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
               {/* Target XP Input & Presets */}
               <Text style={styles.inputLabel}>
                 {editingGoalTarget === 'common'
-                  ? (lang === 'tr' ? '🎯 Ortak Hedef Puanı (150 - 600 XP)' : '🎯 Common Goal Points (150 - 600 XP)')
-                  : (lang === 'tr' ? '🎯 Kişisel Ödül Puanı (100 - 400 XP)' : '🎯 Personal Reward Points (100 - 400 XP)')}
+                  ? t(lang, 'home.commonGoalTargetPointsHint')
+                  : t(lang, 'home.personalGoalTargetPointsHint')}
               </Text>
               <View style={styles.goalTargetRow}>
                 <Pressable
@@ -1357,7 +1343,7 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
               {/* Ara Ödüller - Only for Common Goal */}
               {editingGoalTarget === 'common' && (
                 <>
-                  <Text style={styles.inputLabel}>⭐ Yoldaki Ara Ödüller</Text>
+                  <Text style={styles.inputLabel}>⭐ {t(lang, 'home.milestonesTitle')}</Text>
 
                   {/* %25 Section */}
                   <View style={styles.stepRewardRow}>
@@ -1366,7 +1352,7 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
                     </View>
                     <TextInput
                       style={[styles.input, styles.stepRewardInput]}
-                      placeholder="Ara Ödül (örn. Kahve Kaçamağı)"
+                      placeholder={t(lang, 'home.rewardPlaceholder')}
                       placeholderTextColor="#94a3b8"
                       value={m25Title}
                       onChangeText={setM25Title}
@@ -1401,7 +1387,7 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
                     </View>
                     <TextInput
                       style={[styles.input, styles.stepRewardInput]}
-                      placeholder="Ara Ödül (örn. Film Gecesi)"
+                      placeholder={t(lang, 'home.rewardPlaceholder')}
                       placeholderTextColor="#94a3b8"
                       value={m60Title}
                       onChangeText={setM60Title}
@@ -1435,10 +1421,10 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
 
               <View style={styles.goalActions}>
                 <BouncyPressable
-                  variant="amber"
+                  variant="primary"
                   title={
                     members.length >= 2
-                      ? (lang === 'tr' ? '🤝 Eşime Onaya Gönder' : '🤝 Send for Partner Approval')
+                      ? `🤝 ${t(lang, 'home.sendForApproval')}`
                       : (goalModalMode === 'edit'
                         ? `💾 ${t(lang, 'home.updateGoal')}`
                         : `🚀 ${t(lang, 'home.start')}`)
@@ -1449,13 +1435,13 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
                 {editingGoalTarget === 'common' && goalModalMode === 'edit' && (
                   <BouncyPressable
                     variant="ghost"
-                    title={`🔄 ${t(lang, 'home.newGoal')} (Sıfırla)`}
+                    title={`🔄 ${t(lang, 'home.newGoal')}`}
                     onPress={() => {
                       setGoalModalMode('new');
                       setGoalTitle('');
                       setGoalTarget('400');
-                      setM25Title('Kahve Kaçamağı');
-                      setM60Title('Film Gecesi');
+                      setM25Title(t(lang, 'home.defaultCoffee'));
+                      setM60Title(t(lang, 'home.defaultMovie'));
                     }}
                     style={styles.switchGoalModeBtn}
                     textStyle={styles.switchGoalModeText}
@@ -1499,7 +1485,7 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
                         </Text>
                       </View>
                       <Text style={styles.sheetTitle}>
-                        {t(lang, 'home.milestonesTitle')} (%{selectedMilestone.pct})
+                        {t(lang, 'home.milestonesTitle')} ({lang === 'tr' ? `%${selectedMilestone.pct}` : `${selectedMilestone.pct}%`})
                       </Text>
                     </View>
                     <BouncyPressable
@@ -1512,12 +1498,12 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
 
                   <View style={styles.milestoneBody}>
                     <View style={styles.milestoneStatCard}>
-                      <Text style={styles.milestoneStatLabel}>Gereken Hedef</Text>
+                      <Text style={styles.milestoneStatLabel}>{t(lang, 'milestones.requiredTarget')}</Text>
                       <Text style={styles.milestoneStatValue}>{milestoneTarget} XP</Text>
                       <Text style={styles.milestoneStatSub}>
                         {isReached
-                          ? '🎉 Bu kademeye ulaşıldı!'
-                          : `Hedefe kalan: ${remaining} XP`}
+                          ? t(lang, 'milestones.reached')
+                          : t(lang, 'milestones.remaining').replace('{points}', String(remaining))}
                       </Text>
                     </View>
 
@@ -1526,11 +1512,11 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
                       <View style={{ flex: 1 }}>
                         <Text style={styles.milestoneRewardHeading}>
                           {selectedMilestone.pct === 100
-                            ? 'Büyük Hedef'
-                            : 'Bu Kademede Açılan Ara Ödül'}
+                            ? t(lang, 'milestones.bigGoal')
+                            : t(lang, 'milestones.intermediateReward')}
                         </Text>
                         <Text style={styles.milestoneRewardName}>
-                          {milestoneRewardName}
+                          {localizeDefaultGoalText(milestoneRewardName, lang)}
                         </Text>
                       </View>
                     </View>
@@ -1538,7 +1524,7 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
 
                   <BouncyPressable
                     variant="primary"
-                    title="Tamam"
+                    title={t(lang, 'home.done')}
                     onPress={() => setSelectedMilestone(null)}
                     style={styles.milestoneDoneBtn}
                   />
@@ -1576,9 +1562,9 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
                   {templateTitle(editingTask, lang)}
                 </Text>
                 <Text style={styles.taskEditNotice}>
-                  {lang === 'tr'
-                    ? `${editingTask.minPoints} ile ${editingTask.maxPoints} XP arasında olmalıdır`
-                    : `Must be between ${editingTask.minPoints} and ${editingTask.maxPoints} XP`}
+                  {t(lang, 'home.pointsRangeNotice')
+                    .replace('{min}', String(editingTask.minPoints))
+                    .replace('{max}', String(editingTask.maxPoints))}
                 </Text>
 
                 <View style={styles.taskEditStepperRow}>
@@ -1649,7 +1635,7 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
       <CelebrationOverlay
         visible={showCelebration}
         title={activeGoal.title}
-        subtitle={`${total} / ${target} XP Ulaşıldı!`}
+        subtitle={t(lang, 'celebration.xpReached').replace('{total}', String(total)).replace('{target}', String(target))}
         onNewGoal={() => {
           setShowCelebration(false);
           // Wait for celebration modal to dismiss on iOS before presenting goal modal
@@ -1691,7 +1677,7 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
         >
           <Text style={[styles.tabIcon, activeTab === 'home' && styles.tabIconActive]}>🏠</Text>
           <Text style={[styles.tabLabel, activeTab === 'home' && styles.tabLabelActive]}>
-            {lang === 'tr' ? 'Ana Sayfa' : 'Home'}
+            {t(lang, 'home.homeTab')}
           </Text>
         </Pressable>
 
@@ -1706,7 +1692,7 @@ export function HomeScreen({ lang = 'tr' }: { lang?: Lang }) {
         >
           <Text style={[styles.tabIcon, activeTab === 'settings' && styles.tabIconActive]}>⚙️</Text>
           <Text style={[styles.tabLabel, activeTab === 'settings' && styles.tabLabelActive]}>
-            {lang === 'tr' ? 'Ayarlar' : 'Settings'}
+            {t(lang, 'home.settings')}
           </Text>
         </Pressable>
       </View>
@@ -2115,11 +2101,14 @@ const styles = StyleSheet.create({
     borderColor: colors.neutral[200],
     borderWidth: 1,
     borderRadius: radii.xs,
-    paddingHorizontal: 6,
-    paddingVertical: 4,
-    fontSize: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 0,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
+    fontSize: 13,
     fontWeight: '700',
-    width: 48,
+    width: 58,
+    height: 32,
     textAlign: 'center',
     color: colors.neutral[900],
   },
@@ -2499,14 +2488,18 @@ const styles = StyleSheet.create({
     color: colors.emerald[700],
   },
   goalTargetInput: {
-    width: 90,
-    height: 42,
+    width: 110,
+    minHeight: 46,
+    paddingVertical: 0,
+    paddingHorizontal: 8,
+    textAlignVertical: 'center',
+    includeFontPadding: false,
     backgroundColor: colors.neutral[50],
     borderColor: colors.emerald[600],
     borderWidth: 2,
     borderRadius: radii.sm,
     textAlign: 'center',
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: '900',
     color: colors.neutral[900],
   },
@@ -2726,12 +2719,16 @@ const styles = StyleSheet.create({
     color: colors.emerald[700],
   },
   taskEditInput: {
-    width: 80,
+    width: 96,
     height: 48,
     backgroundColor: colors.neutral[50],
     borderColor: colors.emerald[600],
     borderWidth: 2,
     borderRadius: radii.sm,
+    paddingHorizontal: 8,
+    paddingVertical: 0,
+    includeFontPadding: false,
+    textAlignVertical: 'center',
     textAlign: 'center',
     fontSize: 22,
     fontWeight: '900',

@@ -1,16 +1,20 @@
 import { useState } from 'react';
 import {
   Alert,
+  Modal,
+  Pressable,
   ScrollView,
   StyleSheet,
   Switch,
   Text,
+  TouchableOpacity,
   View,
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { useBizde } from '@/store';
 import { BouncyPressable } from './game/BouncyPressable';
 import { colors, radii, shadows } from '@/theme/tokens';
+import { SUPPORTED_LANGUAGES, DEFAULT_LANGUAGE_OPTION, t, type Lang } from '@/i18n/strings';
 
 interface SettingsScreenProps {
   showIndividualGoals: boolean;
@@ -21,11 +25,16 @@ export function SettingsScreen({
   showIndividualGoals,
   onToggleIndividualGoals,
 }: SettingsScreenProps) {
-  const { pairingCode, coupleId, members, actor, reset } = useBizde();
+  const { pairingCode, coupleId, members, actor, reset, language, setLanguage } = useBizde();
 
   const [showCode, setShowCode] = useState(false);
   const [notifications, setNotifications] = useState(true);
   const [hapticsEnabled, setHapticsEnabled] = useState(true);
+  const [langModalVisible, setLangModalVisible] = useState(false);
+
+  const lang: Lang = language || 'tr';
+  const currentLangOption =
+    SUPPORTED_LANGUAGES.find((item) => item.code === lang) ?? DEFAULT_LANGUAGE_OPTION;
 
   const effectiveCode = pairingCode || coupleId?.replace(/^couple-/, '') || '------';
   const partnerName =
@@ -33,21 +42,24 @@ export function SettingsScreen({
     (members[0] === actor ? members[1] ?? 'Partner' : members[0] ?? 'Partner');
 
   const handleCopyCode = () => {
-    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-    Alert.alert('Eşleşme Kodu', `Eşleşme Kodunuz: ${effectiveCode}\n\nBu kodu eşinizle paylaşarak uygulamaya katılmasını sağlayabilirsiniz.`);
+    if (hapticsEnabled) void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    Alert.alert(
+      t(lang, 'settings.codeAlertTitle'),
+      `${t(lang, 'settings.codeAlertMsg')}${effectiveCode}${t(lang, 'settings.codeAlertShare')}`
+    );
   };
 
   const handleLeave = () => {
     Alert.alert(
-      'Eşleşmeden Çık',
-      'Mevcut eşleşmeden çıkıp başlangıç ekranına dönmek istiyor musunuz? Verileriniz silinmez ancak tekrar bağlanmak için koda ihtiyacınız olur.',
+      t(lang, 'settings.leaveAlertTitle'),
+      t(lang, 'settings.leaveAlertMsg'),
       [
-        { text: 'Vazgeç', style: 'cancel' },
+        { text: t(lang, 'settings.leaveCancel'), style: 'cancel' },
         {
-          text: 'Çıkış Yap',
+          text: t(lang, 'settings.leaveLogout'),
           style: 'destructive',
           onPress: () => {
-            void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+            if (hapticsEnabled) void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
             reset();
           },
         },
@@ -55,158 +67,258 @@ export function SettingsScreen({
     );
   };
 
+  const handleSelectLanguage = (newLang: Lang) => {
+    if (hapticsEnabled) void Haptics.selectionAsync();
+    setLanguage(newLang);
+    setLangModalVisible(false);
+  };
+
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* Profile & Pairing Card */}
-      <View style={styles.card}>
-        <View style={styles.profileRow}>
-          <View style={styles.avatarCircle}>
-            <Text style={styles.avatarEmoji}>🌿</Text>
+    <>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Profile & Pairing Card */}
+        <View style={styles.card}>
+          <View style={styles.profileRow}>
+            <View style={styles.avatarCircle}>
+              <Text style={styles.avatarEmoji}>🌿</Text>
+            </View>
+            <View style={styles.profileInfo}>
+              <Text style={styles.profileName}>{actor || t(lang, 'settings.you')}</Text>
+              <Text style={styles.profilePartner}>
+                💖 {partnerName} {t(lang, 'settings.partnerWith')}
+              </Text>
+            </View>
+            <View style={styles.connectedBadge}>
+              <Text style={styles.connectedDot}>●</Text>
+              <Text style={styles.connectedText}>{t(lang, 'settings.connected')}</Text>
+            </View>
           </View>
-          <View style={styles.profileInfo}>
-            <Text style={styles.profileName}>{actor || 'Sen'}</Text>
-            <Text style={styles.profilePartner}>💖 {partnerName} ile eşleşildi</Text>
-          </View>
-          <View style={styles.connectedBadge}>
-            <Text style={styles.connectedDot}>●</Text>
-            <Text style={styles.connectedText}>Bağlı</Text>
+
+          {/* Pairing Code Section */}
+          <View style={styles.codeBox}>
+            <View style={styles.codeHeader}>
+              <Text style={styles.codeBoxTitle}>🔑 {t(lang, 'settings.codeTitle')}</Text>
+              <BouncyPressable
+                variant="ghost"
+                title={showCode ? `🙈 ${t(lang, 'settings.hideCode')}` : `👁️ ${t(lang, 'settings.showCode')}`}
+                onPress={() => {
+                  if (hapticsEnabled) void Haptics.selectionAsync();
+                  setShowCode(!showCode);
+                }}
+                style={styles.toggleCodeBtn}
+                textStyle={styles.toggleCodeText}
+              />
+            </View>
+
+            {showCode ? (
+              <View style={styles.codeRevealRow}>
+                <Text style={styles.codeDisplay}>{effectiveCode}</Text>
+                <BouncyPressable
+                  variant="primary"
+                  title={`📋 ${t(lang, 'settings.copyCode')}`}
+                  onPress={handleCopyCode}
+                  style={styles.copyBtn}
+                />
+              </View>
+            ) : (
+              <Text style={styles.codeHiddenText}>
+                {t(lang, 'settings.codeHidden')}
+              </Text>
+            )}
           </View>
         </View>
 
-        {/* Pairing Code Section */}
-        <View style={styles.codeBox}>
-          <View style={styles.codeHeader}>
-            <Text style={styles.codeBoxTitle}>🔑 Eşleşme Kodunuz</Text>
-            <BouncyPressable
-              variant="ghost"
-              title={showCode ? '🙈 Gizle' : '👁️ Kodu Göster'}
-              onPress={() => {
-                void Haptics.selectionAsync();
-                setShowCode(!showCode);
+        {/* Preferences Section */}
+        <Text style={styles.sectionHeader}>{t(lang, 'settings.preferences')}</Text>
+        <View style={styles.card}>
+          {/* Language Selector Row */}
+          <TouchableOpacity
+            style={styles.settingRow}
+            onPress={() => {
+              if (hapticsEnabled) void Haptics.selectionAsync();
+              setLangModalVisible(true);
+            }}
+            activeOpacity={0.7}
+          >
+            <View style={styles.settingTextCol}>
+              <Text style={styles.settingTitle}>🌐 {t(lang, 'settings.language')}</Text>
+              <Text style={styles.settingSubtitle}>{t(lang, 'settings.languageSub')}</Text>
+            </View>
+            <View style={styles.langBadge}>
+              <Text style={styles.langBadgeFlag}>{currentLangOption.flag}</Text>
+              <Text style={styles.langBadgeText}>{currentLangOption.nativeName}</Text>
+              <Text style={styles.langBadgeChevron}>›</Text>
+            </View>
+          </TouchableOpacity>
+
+          <View style={styles.divider} />
+
+          {/* Individual Goals */}
+          <View style={styles.settingRow}>
+            <View style={styles.settingTextCol}>
+              <Text style={styles.settingTitle}>{t(lang, 'settings.individualGoals')}</Text>
+              <Text style={styles.settingSubtitle}>
+                {t(lang, 'settings.individualGoalsSub')}
+              </Text>
+            </View>
+            <Switch
+              value={showIndividualGoals}
+              onValueChange={(val) => {
+                if (hapticsEnabled) void Haptics.selectionAsync();
+                onToggleIndividualGoals(val);
               }}
-              style={styles.toggleCodeBtn}
-              textStyle={styles.toggleCodeText}
+              trackColor={{ false: colors.neutral[300], true: colors.emerald[600] }}
+              thumbColor={colors.white}
             />
           </View>
 
-          {showCode ? (
-            <View style={styles.codeRevealRow}>
-              <Text style={styles.codeDisplay}>{effectiveCode}</Text>
-              <BouncyPressable
-                variant="primary"
-                title="📋 Paylaş / Göster"
-                onPress={handleCopyCode}
-                style={styles.copyBtn}
-              />
+          <View style={styles.divider} />
+
+          {/* Notifications */}
+          <View style={styles.settingRow}>
+            <View style={styles.settingTextCol}>
+              <Text style={styles.settingTitle}>{t(lang, 'settings.notifications')}</Text>
+              <Text style={styles.settingSubtitle}>
+                {t(lang, 'settings.notificationsSub')}
+              </Text>
             </View>
-          ) : (
-            <Text style={styles.codeHiddenText}>
-              •••••• (Kodu görmek için "Kodu Göster"e dokunun)
-            </Text>
-          )}
-        </View>
-      </View>
-
-      {/* Preferences Section */}
-      <Text style={styles.sectionHeader}>Uygulama Tercihleri</Text>
-      <View style={styles.card}>
-        <View style={styles.settingRow}>
-          <View style={styles.settingTextCol}>
-            <Text style={styles.settingTitle}>Bireysel Ödüller</Text>
-            <Text style={styles.settingSubtitle}>
-              Erkek ve kadının bireysel ödül kartlarını ana sayfada gösterir.
-            </Text>
+            <Switch
+              value={notifications}
+              onValueChange={(val) => {
+                if (hapticsEnabled) void Haptics.selectionAsync();
+                setNotifications(val);
+              }}
+              trackColor={{ false: colors.neutral[300], true: colors.emerald[600] }}
+              thumbColor={colors.white}
+            />
           </View>
-          <Switch
-            value={showIndividualGoals}
-            onValueChange={(val) => {
-              if (hapticsEnabled) void Haptics.selectionAsync();
-              onToggleIndividualGoals(val);
-            }}
-            trackColor={{ false: colors.neutral[300], true: colors.emerald[600] }}
-            thumbColor={colors.white}
-          />
-        </View>
 
-        <View style={styles.divider} />
+          <View style={styles.divider} />
 
-        <View style={styles.settingRow}>
-          <View style={styles.settingTextCol}>
-            <Text style={styles.settingTitle}>Görev ve Onay Bildirimleri</Text>
-            <Text style={styles.settingSubtitle}>
-              Eşiniz bir görev yaptığında veya rica ettiğinde bildirim alın.
-            </Text>
+          {/* Haptics */}
+          <View style={styles.settingRow}>
+            <View style={styles.settingTextCol}>
+              <Text style={styles.settingTitle}>{t(lang, 'settings.haptics')}</Text>
+              <Text style={styles.settingSubtitle}>
+                {t(lang, 'settings.hapticsSub')}
+              </Text>
+            </View>
+            <Switch
+              value={hapticsEnabled}
+              onValueChange={(val) => {
+                void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                setHapticsEnabled(val);
+              }}
+              trackColor={{ false: colors.neutral[300], true: colors.emerald[600] }}
+              thumbColor={colors.white}
+            />
           </View>
-          <Switch
-            value={notifications}
-            onValueChange={(val) => {
-              if (hapticsEnabled) void Haptics.selectionAsync();
-              setNotifications(val);
-            }}
-            trackColor={{ false: colors.neutral[300], true: colors.emerald[600] }}
-            thumbColor={colors.white}
-          />
         </View>
 
-        <View style={styles.divider} />
-
-        <View style={styles.settingRow}>
-          <View style={styles.settingTextCol}>
-            <Text style={styles.settingTitle}>Titreşim & Dokunsal Geri Bildirim</Text>
-            <Text style={styles.settingSubtitle}>
-              Buton ve XP kazanımlarında dokunsal his.
-            </Text>
+        {/* About & Philosophy */}
+        <Text style={styles.sectionHeader}>{t(lang, 'settings.about')}</Text>
+        <View style={styles.card}>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>{t(lang, 'settings.appName')}</Text>
+            <Text style={styles.infoValue}>Bizdee</Text>
           </View>
-          <Switch
-            value={hapticsEnabled}
-            onValueChange={(val) => {
-              void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-              setHapticsEnabled(val);
-            }}
-            trackColor={{ false: colors.neutral[300], true: colors.emerald[600] }}
-            thumbColor={colors.white}
+          <View style={styles.divider} />
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>{t(lang, 'settings.philosophy')}</Text>
+            <Text style={styles.infoValue}>{t(lang, 'settings.philosophyText')}</Text>
+          </View>
+          <View style={styles.divider} />
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>{t(lang, 'settings.version')}</Text>
+            <Text style={styles.infoValue}>1.0.0 (Expo v57)</Text>
+          </View>
+        </View>
+
+        {/* Leave Couple Button */}
+        <View style={styles.leaveSection}>
+          <BouncyPressable
+            variant="danger"
+            title={`🚪 ${t(lang, 'settings.leaveCouple')}`}
+            onPress={handleLeave}
+            wrapperStyle={{ width: '100%' }}
+            style={styles.leaveBtn}
+            textStyle={styles.leaveBtnText}
           />
+          <Text style={styles.leaveNote}>
+            {t(lang, 'settings.leaveCoupleSub')}
+          </Text>
         </View>
-      </View>
+      </ScrollView>
 
-      {/* About & Philosophy */}
-      <Text style={styles.sectionHeader}>Hakkında</Text>
-      <View style={styles.card}>
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Uygulama</Text>
-          <Text style={styles.infoValue}>Bizdee</Text>
-        </View>
-        <View style={styles.divider} />
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Felsefe</Text>
-          <Text style={styles.infoValue}>Tek ortak hedef, tek çubuk. Borç-alacak yok.</Text>
-        </View>
-        <View style={styles.divider} />
-        <View style={styles.infoRow}>
-          <Text style={styles.infoLabel}>Sürüm</Text>
-          <Text style={styles.infoValue}>1.0.0 (Expo v57)</Text>
-        </View>
-      </View>
+      {/* Language Selection Modal (Option A) */}
+      <Modal
+        visible={langModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setLangModalVisible(false)}
+      >
+        <Pressable
+          style={styles.modalOverlay}
+          onPress={() => setLangModalVisible(false)}
+        >
+          <Pressable style={styles.modalCard} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>🌐 {t(lang, 'settings.selectLanguage')}</Text>
+              <TouchableOpacity
+                onPress={() => setLangModalVisible(false)}
+                style={styles.modalCloseBtn}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                <Text style={styles.modalCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
 
-      {/* Leave Couple Button */}
-      <View style={styles.leaveSection}>
-        <BouncyPressable
-          variant="danger"
-          title="🚪 Eşleşmeden Çıkış Yap"
-          onPress={handleLeave}
-          wrapperStyle={{ width: '100%' }}
-          style={styles.leaveBtn}
-          textStyle={styles.leaveBtnText}
-        />
-        <Text style={styles.leaveNote}>
-          Çıkış yaptığınızda bu cihazdaki aktif oturum sonlanır.
-        </Text>
-      </View>
-    </ScrollView>
+            <View style={styles.langList}>
+              {SUPPORTED_LANGUAGES.map((item) => {
+                const isSelected = item.code === lang;
+                return (
+                  <TouchableOpacity
+                    key={item.code}
+                    style={[styles.langOptionRow, isSelected && styles.langOptionRowSelected]}
+                    onPress={() => handleSelectLanguage(item.code)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.langOptionFlag}>{item.flag}</Text>
+                    <View style={styles.langOptionTextCol}>
+                      <Text
+                        style={[
+                          styles.langOptionNative,
+                          isSelected && styles.langOptionNativeSelected,
+                        ]}
+                      >
+                        {item.nativeName}
+                      </Text>
+                      <Text style={styles.langOptionLabel}>{item.label}</Text>
+                    </View>
+                    {isSelected && (
+                      <View style={styles.langCheckCircle}>
+                        <Text style={styles.langCheckmark}>✓</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <BouncyPressable
+              variant="secondary"
+              title={t(lang, 'settings.close')}
+              onPress={() => setLangModalVisible(false)}
+              style={styles.modalDismissBtn}
+            />
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </>
   );
 }
 
@@ -365,6 +477,30 @@ const styles = StyleSheet.create({
     lineHeight: 16,
     fontWeight: '500',
   },
+  langBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.neutral[100],
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: radii.full,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: colors.neutral[200],
+  },
+  langBadgeFlag: {
+    fontSize: 16,
+  },
+  langBadgeText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: colors.neutral[800],
+  },
+  langBadgeChevron: {
+    fontSize: 16,
+    color: colors.neutral[400],
+    fontWeight: '700',
+  },
   divider: {
     height: 1,
     backgroundColor: colors.neutral[100],
@@ -408,5 +544,102 @@ const styles = StyleSheet.create({
     color: colors.neutral[400],
     textAlign: 'center',
     fontWeight: '500',
+  },
+
+  /* Modal Styles */
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalCard: {
+    backgroundColor: colors.white,
+    borderRadius: radii.xl,
+    padding: 20,
+    width: '100%',
+    maxWidth: 380,
+    ...shadows.card,
+    gap: 16,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: '900',
+    color: colors.neutral[900],
+  },
+  modalCloseBtn: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.neutral[100],
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalCloseText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: colors.neutral[600],
+  },
+  langList: {
+    gap: 8,
+  },
+  langOptionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: radii.md,
+    borderWidth: 1.5,
+    borderColor: colors.neutral[200],
+    backgroundColor: colors.neutral[50],
+    gap: 12,
+  },
+  langOptionRowSelected: {
+    borderColor: colors.emerald[500],
+    backgroundColor: colors.emerald[50],
+  },
+  langOptionFlag: {
+    fontSize: 26,
+  },
+  langOptionTextCol: {
+    flex: 1,
+    gap: 2,
+  },
+  langOptionNative: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: colors.neutral[800],
+  },
+  langOptionNativeSelected: {
+    color: colors.emerald[800],
+  },
+  langOptionLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.neutral[400],
+  },
+  langCheckCircle: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: colors.emerald[600],
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  langCheckmark: {
+    color: colors.white,
+    fontSize: 13,
+    fontWeight: '900',
+  },
+  modalDismissBtn: {
+    marginTop: 4,
+    minHeight: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });

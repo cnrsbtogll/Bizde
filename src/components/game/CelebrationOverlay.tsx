@@ -6,6 +6,8 @@ import { BouncyPressable } from './BouncyPressable';
 import confettiSource from '../../../assets/animations/confetti.json';
 import trophySource from '../../../assets/animations/trophy.json';
 import { colors, radii, shadows } from '@/theme/tokens';
+import { useBizde } from '@/store';
+import { t, localizeDefaultGoalText, type Lang } from '@/i18n/strings';
 
 interface CelebrationOverlayProps {
   visible: boolean;
@@ -19,11 +21,13 @@ interface CelebrationOverlayProps {
 export function CelebrationOverlay({
   visible,
   title,
-  subtitle = 'Hedef Puan Barajını Aştınız!',
+  subtitle,
   onNewGoal,
   onClose,
-  newGoalButtonText = 'Yeni Hedef Seç',
+  newGoalButtonText,
 }: CelebrationOverlayProps) {
+  const lang: Lang = useBizde((s) => s.language) || 'tr';
+
   useEffect(() => {
     if (visible) {
       void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -36,6 +40,9 @@ export function CelebrationOverlay({
   }, [visible]);
 
   if (!visible) return null;
+
+  const displaySubtitle = subtitle || t(lang, 'celebration.subtitle');
+  const displayBtnText = newGoalButtonText || t(lang, 'celebration.newGoal');
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
@@ -61,21 +68,21 @@ export function CelebrationOverlay({
             />
           </View>
 
-          <Text style={styles.badgeLabel}>ZAFER ANI!</Text>
-          <Text style={styles.goalTitle}>{title}</Text>
-          <Text style={styles.subtitle}>{subtitle}</Text>
+          <Text style={styles.badgeLabel}>{t(lang, 'celebration.victory')}</Text>
+          <Text style={styles.goalTitle}>{localizeDefaultGoalText(title, lang)}</Text>
+          <Text style={styles.subtitle}>{displaySubtitle}</Text>
 
           <View style={styles.actions}>
             <BouncyPressable
               variant="copper"
-              title={newGoalButtonText}
+              title={displayBtnText}
               onPress={onNewGoal}
               style={styles.button}
               textStyle={styles.btnText}
             />
             <BouncyPressable
               variant="ghost"
-              title="Kapat"
+              title={t(lang, 'settings.close')}
               onPress={onClose}
               style={styles.secondaryBtn}
             />
@@ -156,4 +163,3 @@ const styles = StyleSheet.create({
     minHeight: 42,
   },
 });
-

@@ -3,6 +3,7 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { APPRECIATION_POINTS, MAX_TASK_POINTS, MIN_TASK_POINTS } from '@/lib/progress';
 import { clampPoints, findTemplate, type TaskTemplate, type RewardTemplate } from '@/mock/catalog';
+import type { Lang } from '@/i18n/strings';
 import { signInAnon } from '@/firebase';
 import { subscribeToCouple, updateCoupleDocument, initCoupleDocument, fetchCoupleDocument, type SharedCoupleData } from '@/services/firestore';
 
@@ -129,6 +130,8 @@ interface BizdeState {
   proposeRewardClaim: (member: string) => boolean;
   acceptRewardClaim: () => boolean;
   rejectRewardClaim: () => boolean;
+  language: Lang;
+  setLanguage: (lang: Lang) => void;
   reset: () => void;
 }
 
@@ -171,6 +174,9 @@ export const useBizde = create<BizdeState>()(
   pendingGoalProposal: null,
   pendingRewardClaim: null,
   lastApprovedRewardClaim: null,
+  language: 'tr',
+
+  setLanguage: (lang) => set({ language: lang }),
 
   signIn: async (displayName) => {
     const name = displayName.trim();
@@ -673,6 +679,7 @@ export const useBizde = create<BizdeState>()(
       pendingGoalProposal: null,
       pendingRewardClaim: null,
       lastApprovedRewardClaim: null,
+      language: get().language,
     });
   },
 }),
@@ -699,6 +706,7 @@ export const useBizde = create<BizdeState>()(
         pendingGoalProposal: state.pendingGoalProposal,
         pendingRewardClaim: state.pendingRewardClaim,
         lastApprovedRewardClaim: state.lastApprovedRewardClaim,
+        language: state.language,
       }),
       onRehydrateStorage: () => (hydratedState) => {
         if (hydratedState?.coupleId) {
